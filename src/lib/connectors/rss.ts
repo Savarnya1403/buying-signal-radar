@@ -2,7 +2,7 @@ import { z } from "zod";
 import Parser from "rss-parser";
 import { safeFetch } from "@/lib/http/safe-fetch";
 import { extractCompanyFromHeadline, cleanSourceName, stripHtml, truncateEvidence } from "./extraction";
-import type { ConnectorContext, ConnectorResult, RawDocument, SourceConnector } from "./types";
+import type { ConnectorResult, RawDocument, SourceConnector } from "./types";
 
 export const rssConfigSchema = z.object({
   feedUrl: z.string().url().max(2000),
@@ -86,7 +86,7 @@ export const rssConnector: SourceConnector<RssConfig> = {
   description: "Monitor public news, company blogs and press-release feeds. Headlines are attributed and linked.",
   configSchema: rssConfigSchema,
   docs: "Provide a public RSS or Atom URL. Optionally pin a company hint when every item belongs to one company.",
-  async fetch(config, context): Promise<ConnectorResult> {
+  async fetch(config): Promise<ConnectorResult> {
     const result = await safeFetch(config.feedUrl, { timeoutMs: 12_000 });
     const parser = new Parser({ customFields: { item: ["summary", "content:encoded"] } });
     const feed = await parser.parseString(result.text);

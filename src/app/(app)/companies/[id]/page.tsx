@@ -3,27 +3,20 @@ import { notFound } from "next/navigation";
 import {
   ArrowRight,
   ArrowUpRight,
-  Building2,
-  CalendarClock,
   CircleAlert,
   Network,
   Quote,
-  Radar,
   ShieldCheck,
   Sparkles,
   Target,
-  TrendingUp,
-  Users,
 } from "lucide-react";
 import { PageHeader } from "@/components/shell/page-header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   CompanyAvatar,
-  DataModeBadge,
   DemoBanner,
   ExternalLink,
-  ScoreBar,
   ScoreRing,
   SignalBadge,
   Unverified,
@@ -309,7 +302,6 @@ export default async function CompanyDetailPage({ params }: { params: Promise<{ 
             </div>
             <div className="divide-y divide-white/[0.045]">
               {company.signals.map((signal) => {
-                const meta = signalMeta(signal.type);
                 return (
                   <article key={signal.id} className="px-5 py-4">
                     <div className="flex flex-wrap items-center gap-2">

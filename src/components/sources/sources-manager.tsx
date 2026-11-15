@@ -1,12 +1,10 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
-  CheckCircle2,
   Clock3,
-  ExternalLink,
   FileUp,
   Globe,
   Hash,

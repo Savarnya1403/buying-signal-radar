@@ -30,7 +30,6 @@ import {
   Upload,
   UserRound,
   Users,
-  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -191,7 +190,7 @@ export function ReferralGraph({
   workspaceName: string;
 }) {
   const router = useRouter();
-  const [pending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
   const [targetCompanyId, setTargetCompanyId] = useState<string>("");
   const [activePathIndex, setActivePathIndex] = useState(0);
   const [verifiedOnly, setVerifiedOnly] = useState(false);
@@ -229,8 +228,8 @@ export function ReferralGraph({
   }, [graphData, targetCompanyId, verifiedOnly]);
 
   const activePath = paths[Math.min(activePathIndex, Math.max(0, paths.length - 1))] ?? null;
-  const pathNodeIds = new Set(activePath?.nodes.map((node) => node.id) ?? []);
-  const pathPairs = new Set(activePath?.edges.map((edge) => pair(edge.from, edge.to)) ?? []);
+  const pathNodeIds = useMemo(() => new Set(activePath?.nodes.map((node) => node.id) ?? []), [activePath]);
+  const pathPairs = useMemo(() => new Set(activePath?.edges.map((edge) => pair(edge.from, edge.to)) ?? []), [activePath]);
   const hasPath = Boolean(activePath);
 
   const groups = useMemo(() => {

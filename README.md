@@ -74,6 +74,8 @@ npx prisma dev
 
 Put that URL in `.env`. The `pgbouncer=true` flag disables prepared statements and prevents `42P05` errors with pooled/proxied connections. For hosted Postgres, append `sslmode=require` (and `pgbouncer=true` for Supabase/Neon poolers).
 
+Need a hosted database without signing up? `npx create-db@latest --json` provisions a temporary Prisma Postgres instance and prints a claim URL. Claim it to keep it beyond the trial window.
+
 ### 4. Create the schema and run
 
 ```bash
@@ -235,7 +237,7 @@ docs/                    architecture and connector guides
 | `npm run db:push` | Push the Prisma schema |
 | `npm run db:studio` | Open Prisma Studio |
 | `npm run db:seed` | Seed a standalone demo workspace |
-| `npm run lint` | Next.js lint (requires ESLint config) |
+| `npm run lint` | ESLint with Next.js core-web-vitals rules |
 
 ## Deployment
 

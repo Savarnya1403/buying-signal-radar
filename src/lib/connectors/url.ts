@@ -104,7 +104,6 @@ export const websiteConnector: SourceConnector<WebsiteConfig> = {
     const documents: RawDocument[] = [];
     const warnings: string[] = [];
     const origin = new URL(config.website);
-    const domain = domainFromUrl(config.website);
     const pages = websitePageUrls(config.website, config.paths);
     let lastCompany: RawDocument["company"] | null = null;
 

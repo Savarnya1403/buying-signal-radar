@@ -247,11 +247,11 @@ export default function LandingPage() {
                   <span className="flex h-8 w-8 items-center justify-center rounded-md border border-white/[0.08] bg-white/[0.03] text-signal-lime">
                     <step.icon className="h-4 w-4" />
                   </span>
-                  <span className="font-mono text-[10px] text-muted-foreground/40">0{index + 1}</span>
+                  <span className="font-mono text-[10px] text-muted-foreground/90">0{index + 1}</span>
                 </div>
                 <h3 className="mt-4 text-[13.5px] font-medium text-foreground">{step.title}</h3>
                 <p className="mt-2 flex-1 text-[11.5px] leading-relaxed text-muted-foreground">{step.body}</p>
-                <p className="mt-4 border-t border-white/[0.06] pt-3 font-mono text-[9.5px] uppercase tracking-[0.1em] text-muted-foreground/50">
+                <p className="mt-4 border-t border-white/[0.06] pt-3 font-mono text-[9.5px] uppercase tracking-[0.1em] text-muted-foreground/90">
                   {step.detail}
                 </p>
               </div>

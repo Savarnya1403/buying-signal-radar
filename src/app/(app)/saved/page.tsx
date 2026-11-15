@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   CompanyAvatar,
-  DataModeBadge,
   DemoBanner,
   EmptyState,
   SignalBadge,

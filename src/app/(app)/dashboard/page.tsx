@@ -20,7 +20,6 @@ import {
   CompanyAvatar,
   DataModeBadge,
   DemoBanner,
-  EmptyState,
   MetricCard,
   ScoreBar,
   SignalBadge,
@@ -32,7 +31,7 @@ import { QuickRunButton } from "@/components/discovery/quick-run-button";
 import { ensureWorkspace } from "@/lib/workspace";
 import { prisma } from "@/lib/db";
 import { signalMeta } from "@/lib/signals";
-import { formatDate, relativeTime, scoreTone, truncate } from "@/lib/utils";
+import { relativeTime, scoreTone, truncate } from "@/lib/utils";
 import { SAMPLE_PRODUCT_DESCRIPTIONS } from "@/lib/icp/taxonomy";
 
 export const dynamic = "force-dynamic";
