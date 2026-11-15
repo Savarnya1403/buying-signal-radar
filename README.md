@@ -251,6 +251,14 @@ docs/                    architecture and connector guides
 
 For production, prefer migrations (`prisma migrate dev` → commit `prisma/migrations`) over `db push`, and add authentication before storing real contact data.
 
+Serverless functions scale to many instances, so append connection limits to `DATABASE_URL` on Vercel:
+
+```text
+?sslmode=require&connection_limit=1&pool_timeout=20&pgbouncer=true
+```
+
+`connection_limit=1` stops each warm function from holding a multi-connection pool (free Postgres tiers typically cap total connections), and `pgbouncer=true` keeps Prisma on unnamed prepared statements for pooled proxies. Without it you will see `too many connections for role ...` errors under load.
+
 ## Testing
 
 ```bash
