@@ -1,0 +1,307 @@
+// Buying Signal Radar — PostgreSQL schema
+// Local development: `npx prisma dev` (Prisma Postgres) or any PostgreSQL 14+.
+// Production: Supabase, Neon, Prisma Postgres or any managed PostgreSQL.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum DataMode {
+  LIVE
+  DEMO
+}
+
+enum SignalType {
+  HIRING
+  FUNDING
+  EXPANSION
+  PRODUCT_LAUNCH
+  TECHNOLOGY_CHANGE
+  PARTNERSHIP
+  LEADERSHIP
+  CUSTOMER_GROWTH
+  CUSTOMER_COMPLAINT
+}
+
+enum ProspectStatus {
+  NEW
+  SAVED
+  CONTACTED
+  DISQUALIFIED
+}
+
+enum SourceType {
+  RSS
+  URL
+  WEBSITE
+  JOB_FEED
+  WEB_SEARCH
+  HN
+}
+
+enum RunStatus {
+  RUNNING
+  SUCCESS
+  PARTIAL
+  FAILED
+}
+
+enum RelationshipSource {
+  MANUAL
+  CSV
+  VERIFIED
+}
+
+model Workspace {
+  id            String    @id
+  name          String    @default("My workspace")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  demoSeededAt  DateTime?
+  icps          IcpProfile[]
+  companies     Company[]
+  signals       Signal[]
+  prospects     Prospect[]
+  contacts      Contact[]
+  relationships Relationship[]
+  sources       Source[]
+  runs          IngestionRun[]
+  reports       Report[]
+  scoring       ScoringProfile?
+}
+
+model IcpProfile {
+  id                   String        @id @default(cuid())
+  workspaceId          String
+  workspace            Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  productDescription   String        @db.Text
+  productCategory      String
+  targetIndustries     String[]
+  companySizeMin       Int?
+  companySizeMax       Int?
+  geographies          String[]
+  buyerRoles           String[]
+  painPoints           String[]
+  buyingTriggers       String[]
+  exclusions           String[]
+  selectedSignalTypes  String[]      @default([])
+  discoveryPeriodDays  Int           @default(30)
+  rationale            Json          @default("{}")
+  confidence           Float         @default(0.5)
+  isConfirmed          Boolean       @default(false)
+  isDemo               Boolean       @default(false)
+  version              Int           @default(1)
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+  prospects            Prospect[]
+
+  @@index([workspaceId, createdAt])
+}
+
+model Company {
+  id                  String     @id @default(cuid())
+  workspaceId         String
+  workspace           Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  name                String
+  normalizedName      String
+  domain              String?
+  website             String?
+  industry            String?
+  industryConfidence  Float?
+  location            String?
+  employeeCount       Int?
+  employeeRange       String?
+  sizeSource          String?
+  description         String?    @db.Text
+  isDemo              Boolean    @default(false)
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+  signals             Signal[]
+  prospects           Prospect[]
+  contacts            Contact[]
+
+  @@unique([workspaceId, normalizedName])
+  @@unique([workspaceId, domain])
+  @@index([workspaceId, createdAt])
+}
+
+model Signal {
+  id            String     @id @default(cuid())
+  workspaceId   String
+  workspace     Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  companyId     String
+  company       Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  type          SignalType
+  title         String
+  summary       String     @db.Text
+  evidence      String?    @db.Text
+  sourceUrl     String     @db.Text
+  sourceName    String
+  sourceType    SourceType
+  publishedAt   DateTime?
+  discoveredAt  DateTime   @default(now())
+  confidence    Float
+  dataMode      DataMode   @default(LIVE)
+  dedupeKey     String
+  raw           Json?
+  createdAt     DateTime   @default(now())
+
+  @@unique([workspaceId, dedupeKey])
+  @@index([workspaceId, discoveredAt])
+  @@index([workspaceId, type])
+  @@index([companyId, publishedAt])
+}
+
+model Prospect {
+  id              String         @id @default(cuid())
+  workspaceId     String
+  workspace       Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  companyId       String
+  company         Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  icpProfileId    String
+  icpProfile      IcpProfile     @relation(fields: [icpProfileId], references: [id], onDelete: Cascade)
+  icpScore        Int            @default(0)
+  signalScore     Int            @default(0)
+  priorityScore   Int            @default(0)
+  scoreBreakdown  Json           @default("{}")
+  status          ProspectStatus @default(NEW)
+  notes           String?        @db.Text
+  isDemo          Boolean        @default(false)
+  firstSeenAt     DateTime       @default(now())
+  lastSignalAt    DateTime?
+  lastScoredAt    DateTime       @default(now())
+  savedAt         DateTime?
+  contactedAt     DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@unique([workspaceId, companyId, icpProfileId])
+  @@index([workspaceId, priorityScore])
+  @@index([workspaceId, status])
+}
+
+model Contact {
+  id                String         @id @default(cuid())
+  workspaceId       String
+  workspace         Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  name              String
+  email             String?
+  companyName       String?
+  companyId         String?
+  company           Company?       @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  jobTitle          String?
+  relationshipType  String         @default("Professional")
+  strength          Int            @default(3)
+  verified          Boolean        @default(false)
+  firstDegree       Boolean        @default(true)
+  notes             String?        @db.Text
+  linkedinUrl       String?
+  source            RelationshipSource @default(MANUAL)
+  isDemo            Boolean        @default(false)
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  outgoing          Relationship[] @relation("FromContact")
+  incoming          Relationship[] @relation("ToContact")
+
+  @@index([workspaceId, companyId])
+  @@index([workspaceId, createdAt])
+}
+
+model Relationship {
+  id               String             @id @default(cuid())
+  workspaceId      String
+  workspace        Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  fromContactId    String
+  fromContact      Contact            @relation("FromContact", fields: [fromContactId], references: [id], onDelete: Cascade)
+  toContactId      String
+  toContact        Contact            @relation("ToContact", fields: [toContactId], references: [id], onDelete: Cascade)
+  relationshipType String             @default("Knows")
+  strength         Int                @default(3)
+  verified         Boolean            @default(false)
+  source           RelationshipSource @default(MANUAL)
+  notes            String?            @db.Text
+  isDemo           Boolean            @default(false)
+  createdAt        DateTime           @default(now())
+
+  @@unique([workspaceId, fromContactId, toContactId])
+  @@index([workspaceId])
+}
+
+model Source {
+  id          String        @id @default(cuid())
+  workspaceId String
+  workspace   Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  type        SourceType
+  name        String
+  url         String?       @db.Text
+  config      Json          @default("{}")
+  enabled     Boolean       @default(true)
+  isDemo      Boolean       @default(false)
+  lastRunAt   DateTime?
+  lastStatus  RunStatus?
+  lastError   String?       @db.Text
+  lastFetched Int           @default(0)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  runs        IngestionRun[]
+
+  @@index([workspaceId, enabled])
+}
+
+model IngestionRun {
+  id               String      @id @default(cuid())
+  workspaceId      String
+  workspace        Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  sourceId         String?
+  source           Source?     @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+  status           RunStatus   @default(RUNNING)
+  trigger          String      @default("manual")
+  itemsFetched     Int         @default(0)
+  documentsKept    Int         @default(0)
+  companiesCreated Int         @default(0)
+  signalsCreated   Int         @default(0)
+  duplicates       Int         @default(0)
+  error            String?     @db.Text
+  log              Json        @default("[]")
+  startedAt        DateTime    @default(now())
+  finishedAt       DateTime?
+
+  @@index([workspaceId, startedAt])
+}
+
+model Report {
+  id               String    @id @default(cuid())
+  workspaceId      String
+  workspace        Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  token            String    @unique
+  title            String
+  industry         String
+  companyCount     Int
+  signalBreakdown  Json      @default("{}")
+  rankings         Json      @default("[]")
+  payload          Json      @default("{}")
+  dateRangeStart   DateTime
+  dateRangeEnd     DateTime
+  dataMode         DataMode  @default(LIVE)
+  createdAt        DateTime  @default(now())
+
+  @@index([workspaceId, createdAt])
+}
+
+model ScoringProfile {
+  id                  String    @id @default(cuid())
+  workspaceId         String    @unique
+  workspace           Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  icpWeights          Json      @default("{}")
+  signalCategoryWeights Json    @default("{}")
+  priorityIcpWeight   Int       @default(55)
+  prioritySignalWeight Int      @default(45)
+  recencyHalfLifeDays Int       @default(21)
+  updatedAt           DateTime  @updatedAt @default(now())
+  createdAt           DateTime  @default(now())
+}

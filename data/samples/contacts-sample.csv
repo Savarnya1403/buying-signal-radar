@@ -1,0 +1,7 @@
+name,email,company,job_title,relationship_type,relationship_strength,verified,first_degree,notes,linkedin_url,knows
+Alex Morgan,alex.morgan@northwindlabs.example,Northwind Labs,VP Sales,Former colleague,5,true,true,"Worked together at Acme 2019–2022; catches up quarterly",https://www.linkedin.com/in/example-alex-morgan,Priya Shah
+Priya Shah,priya.shah@kestrelfinance.example,Kestrel Finance,Head of Revenue Operations,Investor intro,3,false,false,"Met at SaaStr 2025; introduction target, not a direct contact",,Daniel Okafor
+Daniel Okafor,daniel.okafor@nimbusdevtools.example,Nimbus Devtools,VP Engineering,Former manager,4,true,false,"Managed Daniel at Helio Systems; route in via Priya",,
+Sofia Berg,sofia.berg@lumenhealth.example,Lumen Health,COO,Conference acquaintance,2,false,true,"Panel on care operations, 2024",,Marcus Reed
+Marcus Reed,marcus.reed@atlasfreight.example,Atlas Freight,Director of Operations,Former client,4,true,false,"Led the 2021 Atlas rollout",,
+Elena Rossi,elena.rossi@independent.example,Independent,Executive coach,Community,3,false,true,"Runs the GTM operators dinner series",,
