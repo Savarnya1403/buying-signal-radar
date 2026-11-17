@@ -64,7 +64,7 @@ Dedupe and provenance rules:
 
 - A signal must keep `sourceName`, `sourceUrl`, `publishedAt` and an evidence snippet.
 - A company discovered from a low-confidence mention is still stored, but the confidence is visible on the card.
-- Demo rows are tagged `dataMode = DEMO` and never overlap live rows.
+- Every stored row is live output from a connector; there is no synthetic seed path in the product.
 
 ### 4. Scoring
 
@@ -96,7 +96,7 @@ BFS from `you` to the company node returns the shortest edge sequence. Subsequen
 
 | Model | Purpose |
 | --- | --- |
-| `Workspace` | Tenant boundary, demo status, name |
+| `Workspace` | Tenant boundary and name |
 | `IcpProfile` | Product description, taxonomy selections, size range, triggers, exclusions, confirmation state |
 | `Company` | Name, domain, website, industry, location, verified size, description, data mode |
 | `Signal` | Category, title, summary, evidence, source URL/name, confidence, published/discovered dates, data mode |

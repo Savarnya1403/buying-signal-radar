@@ -21,7 +21,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
   DialogContent,
@@ -39,12 +38,10 @@ type ReportRow = {
   title: string;
   industry: string;
   companyCount: number;
-  dataMode: string;
   createdAt: string;
   dateRangeStart: string;
   dateRangeEnd: string;
   signalBreakdown: Record<string, number>;
-  payload: { demoCompanyCount?: number; liveCompanyCount?: number; disclaimer?: string };
 };
 
 export function ReportsManager({ reports }: { reports: ReportRow[] }) {
@@ -131,17 +128,11 @@ export function ReportsManager({ reports }: { reports: ReportRow[] }) {
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-1.5">
                       <Link href={path} className="text-[13px] font-medium text-foreground hover:text-signal-lime">{report.title}</Link>
-                      <Badge variant={report.dataMode === "DEMO" ? "demo" : "primary"}>{report.dataMode === "DEMO" ? "Demo data" : "Live data"}</Badge>
                       <Badge variant="outline" className="font-mono text-[8px]">{report.companyCount} COMPANIES</Badge>
                     </div>
                     <p className="mt-1 text-[10px] text-muted-foreground/55">
                       {report.industry} · published {relativeTime(report.createdAt)} · evidence {formatDate(report.dateRangeStart)} → {formatDate(report.dateRangeEnd)}
                     </p>
-                    {report.payload?.demoCompanyCount ? (
-                      <p className="mt-1 font-mono text-[9px] text-signal-violet/70">
-                        {report.payload.demoCompanyCount} demo · {report.payload.liveCompanyCount ?? 0} live companies
-                      </p>
-                    ) : null}
                     <p className="mt-1 truncate font-mono text-[9px] text-muted-foreground/35">{path}</p>
                   </div>
                   <div className="flex flex-wrap items-center gap-1.5">
@@ -183,7 +174,6 @@ function CreateReportDialog({ onDone }: { onDone: () => void }) {
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [title, setTitle] = useState("");
-  const [includeDemo, setIncludeDemo] = useState(true);
   const [createdPath, setCreatedPath] = useState<string | null>(null);
 
   const submit = async () => {
@@ -192,7 +182,7 @@ function CreateReportDialog({ onDone }: { onDone: () => void }) {
       const response = await fetch("/api/reports", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ title: title.trim() || undefined, includeDemo }),
+        body: JSON.stringify({ title: title.trim() || undefined }),
       });
       const body = await response.json().catch(() => null);
       if (!response.ok) throw new Error(body?.error?.message ?? "Could not create the report.");
@@ -208,7 +198,6 @@ function CreateReportDialog({ onDone }: { onDone: () => void }) {
 
   const reset = () => {
     setTitle("");
-    setIncludeDemo(true);
     setCreatedPath(null);
   };
 
@@ -253,15 +242,6 @@ function CreateReportDialog({ onDone }: { onDone: () => void }) {
                 <Label className="text-[11px]">Report title (optional)</Label>
                 <Input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Fintech buying-signal radar · Q4" maxLength={140} />
               </div>
-              <label className="flex items-start gap-2.5 rounded-lg border border-white/[0.06] bg-white/[0.015] p-3">
-                <Switch checked={includeDemo} onCheckedChange={setIncludeDemo} className="mt-0.5" />
-                <span>
-                  <span className="block text-[11px] font-medium text-foreground/80">Include demo companies</span>
-                  <span className="mt-0.5 block text-[10px] leading-relaxed text-muted-foreground/50">
-                    Demo companies are clearly labelled in the report. Turn this off to publish only live discoveries.
-                  </span>
-                </span>
-              </label>
               <div className="flex items-start gap-2 rounded-lg border border-signal-mint/15 bg-signal-mint/[0.04] px-3 py-2 text-[10px] leading-relaxed text-muted-foreground/60">
                 <ShieldCheck className="mt-0.5 h-3 w-3 shrink-0 text-signal-mint/70" />
                 Contacts, notes, statuses and referral relationships are excluded by design. Every link can be rotated or revoked.

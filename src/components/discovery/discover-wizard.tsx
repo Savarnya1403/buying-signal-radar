@@ -48,7 +48,6 @@ type InitialIcp = {
   discoveryPeriodDays: number;
   confidence: number;
   rationale: unknown;
-  isDemo: boolean;
 };
 
 type SourceSummary = {
@@ -174,11 +173,9 @@ function TagEditor({
 export function DiscoverWizard({
   initialIcp,
   sources,
-  demoSignals,
 }: {
   initialIcp: InitialIcp | null;
   sources: SourceSummary[];
-  demoSignals: number;
 }) {
   const router = useRouter();
   const initialRationale = rationaleFields(initialIcp?.rationale);
@@ -404,11 +401,6 @@ export function DiscoverWizard({
                 ))}
               </div>
             </div>
-            {demoSignals > 0 && (
-              <div className="rounded-lg border border-[#a78bfa]/20 bg-[#a78bfa]/[0.05] px-3 py-2.5 text-[10px] leading-relaxed text-[#c4b5fd]/70">
-                Demo signals are currently loaded. Confirming a new ICP will re-rank the same synthetic companies against it. Reset demo data from Settings to remove them.
-              </div>
-            )}
           </div>
         </div>
       )}
@@ -653,7 +645,7 @@ export function DiscoverWizard({
               </p>
               <div className="mt-4 space-y-4">
                 {interpretation.rationale.length === 0 && (
-                  <p className="text-[11px] text-muted-foreground/50">This ICP was loaded from a saved profile or the demo dataset; no extraction rationale is attached.</p>
+                  <p className="text-[11px] text-muted-foreground/50">This ICP was loaded from a saved profile; no extraction rationale is attached.</p>
                 )}
                 {interpretation.rationale.map((field) => (
                   <div key={field.field}>

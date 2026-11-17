@@ -311,6 +311,7 @@ function AddSourceDialog({
     provider: "remotive",
     boardToken: "",
     companyName: "",
+    domains: "",
     maxItems: 15,
   });
 
@@ -327,6 +328,14 @@ function AddSourceDialog({
       if (form.provider === "jobicy") return { provider: "jobicy", tag: form.query.trim() || undefined, maxItems: form.maxItems };
       if (form.provider === "greenhouse") return { provider: "greenhouse", boardToken: form.boardToken.trim(), companyName: form.companyName.trim(), maxItems: form.maxItems };
       if (form.provider === "lever") return { provider: "lever", boardToken: form.boardToken.trim(), companyName: form.companyName.trim(), maxItems: form.maxItems };
+      if (form.provider === "ashby") return { provider: "ashby", boardToken: form.boardToken.trim(), companyName: form.companyName.trim(), maxItems: form.maxItems };
+      if (form.provider === "auto") {
+        return {
+          provider: "auto",
+          domains: form.domains.split(/[\s,]+/).map((value) => value.trim()).filter(Boolean).slice(0, 8),
+          maxItems: Math.min(40, Math.max(8, form.maxItems * 2)),
+        };
+      }
       return { provider: "rss", feedUrl: form.feedUrl.trim(), maxItems: form.maxItems };
     }
     return { provider: "tavily", query: form.query.trim(), maxResults: 8 };
@@ -347,7 +356,7 @@ function AddSourceDialog({
       const body = await response.json().catch(() => null);
       if (!response.ok) throw new Error(body?.error?.message ?? "Could not add that source.");
       toast.success("Source added. Test it before running discovery.");
-      setForm({ name: "", url: "", feedUrl: "", query: "", provider: "remotive", boardToken: "", companyName: "", maxItems: 15 });
+      setForm({ name: "", url: "", feedUrl: "", query: "", provider: "remotive", boardToken: "", companyName: "", domains: "", maxItems: 15 });
       onDone();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Something went wrong.");
@@ -432,19 +441,36 @@ function AddSourceDialog({
                       <SelectContent>
                         <SelectItem value="remotive">Remotive (public search)</SelectItem>
                         <SelectItem value="jobicy">Jobicy (public tag)</SelectItem>
+                        <SelectItem value="auto">Company watchlist (auto-detect ATS)</SelectItem>
                         <SelectItem value="greenhouse">Greenhouse board</SelectItem>
                         <SelectItem value="lever">Lever board</SelectItem>
+                        <SelectItem value="ashby">Ashby board</SelectItem>
                         <SelectItem value="rss">Custom job RSS</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
+                  {form.provider === "auto" && (
+                    <div className="space-y-1.5">
+                      <Label className="text-[11px]">Company domains to watch</Label>
+                      <textarea
+                        value={form.domains}
+                        onChange={(event) => setForm({ ...form, domains: event.target.value })}
+                        placeholder={"linear.app\nvercel.com\nramp.com"}
+                        rows={3}
+                        className="w-full rounded-lg border border-white/[0.09] bg-[#080b0f] px-3 py-2 font-mono text-[11px] text-foreground placeholder:text-muted-foreground/40 focus-visible:border-primary/50 focus-visible:outline-none"
+                      />
+                      <p className="text-[9.5px] leading-relaxed text-muted-foreground/50">
+                        Up to 8 domains. The connector reads each company&apos;s public careers page, finds the Greenhouse, Lever or Ashby board behind it, and turns open roles into hiring signals.
+                      </p>
+                    </div>
+                  )}
                   {(form.provider === "remotive" || form.provider === "jobicy") && (
                     <div className="space-y-1.5">
                       <Label className="text-[11px]">{form.provider === "remotive" ? "Search query" : "Tag"}</Label>
                       <Input value={form.query} onChange={(event) => setForm({ ...form, query: event.target.value })} placeholder="sales" />
                     </div>
                   )}
-                  {(form.provider === "greenhouse" || form.provider === "lever") && (
+                  {(form.provider === "greenhouse" || form.provider === "lever" || form.provider === "ashby") && (
                     <>
                       <div className="space-y-1.5">
                         <Label className="text-[11px]">Board token</Label>

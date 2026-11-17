@@ -61,10 +61,24 @@ function parseBoolean(raw: string): boolean {
   return /^(true|yes|y|1|verified|confirmed)$/i.test(raw.trim());
 }
 
-export function parseContactsCsv(csv: string): CsvParseResult {
+/** LinkedIn's own connections export starts with a Notes block; keep only the table. */
+function stripLinkedInPreamble(csv: string): string {
+  const lines = csv.replace(/^\uFEFF/, "").split(/\r?\n/);
+  const start = lines.findIndex((line) => /^"?First Name"?\s*,/i.test(line.trim()));
+  if (start <= 0) return csv;
+  return lines.slice(start).join("\n");
+}
+
+function looksLikeLinkedInConnections(headers: string[]): boolean {
+  const normalised = headers.map((header) => header.trim().toLowerCase());
+  return normalised.includes("first name") && normalised.includes("last name") && normalised.some((header) => header === "connected on" || header === "url");
+}
+
+export function parseContactsCsv(rawCsv: string): CsvParseResult {
   const errors: { row: number; message: string }[] = [];
   const rows: ParsedContact[] = [];
-  const parsed = Papa.parse<Record<string, unknown>>(csv.replace(/^\uFEFF/, ""), {
+  const csv = stripLinkedInPreamble(rawCsv);
+  const parsed = Papa.parse<Record<string, unknown>>(csv, {
     header: true,
     skipEmptyLines: "greedy",
     transformHeader: (header) => header.trim(),
@@ -74,19 +88,28 @@ export function parseContactsCsv(csv: string): CsvParseResult {
     errors.push({ row: (parseError.row ?? 0) + 2, message: parseError.message });
   }
 
+  const linkedInExport = looksLikeLinkedInConnections(parsed.meta.fields ?? []);
+
   parsed.data.forEach((row, index) => {
     const rowNumber = index + 2;
+    const firstName = pick(row, ["firstname"]);
+    const lastName = pick(row, ["lastname"]);
+    const connectedOn = pick(row, ["connectedon"]);
     const raw = {
-      name: pick(row, ["name", "fullname", "contactname", "person"]),
+      name:
+        pick(row, ["name", "fullname", "contactname", "person"]) ||
+        [firstName, lastName].filter(Boolean).join(" "),
       email: pick(row, ["email", "emailaddress", "workemail"]),
       company: pick(row, ["company", "companyname", "organization", "organisation", "employer"]),
       jobTitle: pick(row, ["jobtitle", "title", "role", "position"]),
-      relationshipType: pick(row, ["relationshiptype", "relationship", "type"]),
+      relationshipType: linkedInExport ? "LinkedIn connection" : pick(row, ["relationshiptype", "relationship", "type"]),
       strength: parseStrength(pick(row, ["relationshipstrength", "strength", "closeness"])),
-      verified: parseBoolean(pick(row, ["verified", "isverified", "confirmed"])),
+      verified: linkedInExport ? true : parseBoolean(pick(row, ["verified", "isverified", "confirmed"])),
       firstDegree: pick(row, ["firstdegree", "direct", "knowndirectly"]) ? parseBoolean(pick(row, ["firstdegree", "direct", "knowndirectly"])) : true,
-      notes: pick(row, ["notes", "note", "context"]),
-      linkedinUrl: pick(row, ["linkedinurl", "linkedin", "profileurl"]),
+      notes: [pick(row, ["notes", "note", "context"]), linkedInExport && connectedOn ? `LinkedIn connection since ${connectedOn}` : ""]
+        .filter(Boolean)
+        .join(" · "),
+      linkedinUrl: pick(row, ["linkedinurl", "linkedin", "profileurl", "url"]),
       knows: pick(row, ["knows", "connectedto", "relationships", "introducedby"]),
     };
 

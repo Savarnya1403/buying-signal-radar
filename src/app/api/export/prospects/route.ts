@@ -56,7 +56,6 @@ export async function GET() {
         prospect.company.signals.map((signal) => signal.sourceUrl).join(" | "),
         roles.join("; "),
         prospect.notes ?? "",
-        prospect.company.signals.some((signal) => signal.dataMode === "DEMO") ? "DEMO" : "LIVE",
       ];
     });
 

@@ -72,8 +72,8 @@ const modules = [
   },
   {
     icon: Database,
-    title: "Honest data modes",
-    body: "Synthetic demo data is always labelled DEMO. If no connectors are configured, the app says so instead of pretending it scanned the web.",
+    title: "Traceable by default",
+    body: "Every signal keeps its source URL, publication date and snippet. If no connectors are configured, the app says so instead of pretending it scanned the web.",
   },
 ];
 
@@ -137,14 +137,14 @@ export default function LandingPage() {
             </Button>
             <Button asChild size="lg" variant="outline" className="w-full sm:w-auto">
               <Link href="/dashboard">
-                Explore demo workspace
+                Open the dashboard
                 <ArrowUpRight className="h-4 w-4" />
               </Link>
             </Button>
           </div>
 
           <p className="mt-3 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground/50">
-            No signup · Demo data clearly labelled · Postgres-backed
+            No signup · Traceable public evidence · Postgres-backed
           </p>
         </div>
 
@@ -180,12 +180,7 @@ export default function LandingPage() {
               </div>
 
               <div className="rounded-lg border border-white/[0.07] bg-[#080c10] p-4">
-                <div className="flex items-center justify-between">
-                  <span className="label-mono">Priority</span>
-                  <span className="rounded border border-[#a78bfa]/25 bg-[#a78bfa]/10 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider text-[#c4b5fd]">
-                    Sample
-                  </span>
-                </div>
+                <p className="label-mono">Priority</p>
                 <p className="mt-3 text-[15px] font-medium text-foreground">Kestrel Finance</p>
                 <p className="mt-0.5 text-[11px] text-muted-foreground">London, UK · 240 employees · Fintech</p>
 
@@ -316,7 +311,7 @@ export default function LandingPage() {
           Point it at your market.
         </h2>
         <p className="mx-auto mt-2 max-w-lg text-[12.5px] leading-relaxed text-muted-foreground">
-          Start with the demo dataset to see the full loop, then swap in live sources when you are ready.
+          Start with one sentence about your product, then run discovery against the sources you choose.
         </p>
         <div className="mt-6 flex flex-col items-center justify-center gap-2.5 sm:flex-row">
           <Button asChild size="lg">

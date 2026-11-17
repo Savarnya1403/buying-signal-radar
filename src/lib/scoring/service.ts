@@ -93,7 +93,6 @@ export async function rescoreWorkspace(workspaceId: string, icpId?: string) {
         priorityScore: result.priorityScore,
         scoreBreakdown: result.breakdown as object,
         lastSignalAt,
-        isDemo: company.isDemo,
       },
     });
     scored += 1;

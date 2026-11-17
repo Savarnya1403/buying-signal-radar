@@ -4,7 +4,7 @@ import { extractCompanyFromHeadline, domainFromUrl, stripHtml, truncateEvidence 
 import type { ConnectorResult, RawDocument, SourceConnector } from "./types";
 
 export const hnConfigSchema = z.object({
-  query: z.string().trim().min(2).max(200),
+  query: z.string().trim().max(200).default(""),
   tags: z.enum(["show_hn", "story"]).default("show_hn"),
   minPoints: z.number().int().min(0).max(10_000).default(2),
   maxItems: z.number().int().min(1).max(30).default(15),
@@ -86,11 +86,11 @@ export const hnConnector: SourceConnector<HnConfig> = {
   async fetch(config, context): Promise<ConnectorResult> {
     const cutoff = Math.floor(new Date(context.now.getTime() - 180 * 86_400_000).getTime() / 1000);
     const params = new URLSearchParams({
-      query: config.query,
       tags: config.tags,
       hitsPerPage: String(config.maxItems),
       numericFilters: `created_at_i>${cutoff},points>=${config.minPoints}`,
     });
+    if (config.query) params.set("query", config.query);
     const result = await safeFetch(`https://hn.algolia.com/api/v1/search_by_date?${params.toString()}`, {
       timeoutMs: 10_000,
     });

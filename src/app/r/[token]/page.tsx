@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowUpRight, ShieldCheck } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { RadarMark } from "@/components/brand/radar-mark";
 import { PrintButton } from "@/components/reports/print-button";
 import { prisma } from "@/lib/db";
@@ -22,7 +21,6 @@ type RankingSignal = {
   publishedAt: string | null;
   discoveredAt: string;
   confidence: number;
-  dataMode: string;
 };
 
 type Ranking = {
@@ -37,7 +35,6 @@ type Ranking = {
   icpScore: number;
   signalScore: number;
   priorityScore: number;
-  dataMode: string;
   buyerRoleHypotheses: string[];
   signals: RankingSignal[];
 };
@@ -45,9 +42,6 @@ type Ranking = {
 type Snapshot = {
   generatedAt?: string;
   productCategory?: string;
-  dataMode?: string;
-  demoCompanyCount?: number;
-  liveCompanyCount?: number;
   disclaimer?: string;
   icp?: {
     targetIndustries?: string[];
@@ -77,7 +71,6 @@ export default async function SharedReportPage({ params }: { params: Promise<{ t
   const rankings = (report.rankings ?? []) as unknown as Ranking[];
   const snapshot = (report.payload ?? {}) as Snapshot;
   const breakdown = (report.signalBreakdown ?? {}) as Record<string, number>;
-  const demo = report.dataMode === "DEMO" || rankings.every((ranking) => ranking.dataMode === "DEMO");
   const icp = snapshot.icp ?? {};
 
   return (
@@ -94,7 +87,6 @@ export default async function SharedReportPage({ params }: { params: Promise<{ t
             </span>
           </Link>
           <div className="flex items-center gap-2">
-            <Badge variant={demo ? "demo" : "primary"}>{demo ? "Demo data" : "Live evidence"}</Badge>
             <PrintButton />
           </div>
         </header>
@@ -107,18 +99,10 @@ export default async function SharedReportPage({ params }: { params: Promise<{ t
               {report.companyCount} ranked companies in {report.industry || "your target market"}, built from public signals and an explicit ICP. Scores are indices of fit and evidence — not probabilities of purchase.
             </p>
 
-            <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="mt-6 grid grid-cols-2 gap-3">
               <Metric label="Companies" value={String(report.companyCount)} />
-              <Metric label="Live" value={String(snapshot.liveCompanyCount ?? rankings.filter((ranking) => ranking.dataMode !== "DEMO").length)} />
-              <Metric label="Demo" value={String(snapshot.demoCompanyCount ?? rankings.filter((ranking) => ranking.dataMode === "DEMO").length)} />
               <Metric label="Evidence window" value={`${formatDate(report.dateRangeStart, { day: "2-digit", month: "short" })} → ${formatDate(report.dateRangeEnd, { day: "2-digit", month: "short" })}`} />
             </div>
-
-            {demo && (
-              <div className="mt-5 rounded-lg border border-[#a78bfa]/25 bg-[#a78bfa]/[0.06] px-4 py-3 text-[11px] leading-relaxed text-[#c4b5fd]/85">
-                <span className="font-medium text-[#ddd6fe]">This report contains demo data.</span> Companies, signals and evidence links marked DEMO are synthetic and must not be treated as real market intelligence.
-              </div>
-            )}
 
             {(icp.targetIndustries?.length || icp.geographies?.length || icp.buyerRoles?.length) && (
               <div className="mt-5 grid gap-3 sm:grid-cols-3">
@@ -170,7 +154,6 @@ export default async function SharedReportPage({ params }: { params: Promise<{ t
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-mono text-[10px] text-muted-foreground/40">{String(ranking.rank).padStart(2, "0")}</span>
                       <h2 className="text-[16px] font-medium text-foreground">{ranking.company}</h2>
-                      {ranking.dataMode === "DEMO" && <Badge variant="demo">Demo</Badge>}
                     </div>
                     <p className="mt-1 text-[11px] text-muted-foreground/55 print-muted">
                       {ranking.industry} · {ranking.location}
@@ -211,7 +194,6 @@ export default async function SharedReportPage({ params }: { params: Promise<{ t
                           <span className="text-[9px] text-muted-foreground/35">·</span>
                           <span className="text-[9px] text-muted-foreground/45 print-muted">{formatDate(signal.publishedAt ?? signal.discoveredAt)}</span>
                           <span className="font-mono text-[8px] text-muted-foreground/35">{Math.round(signal.confidence * 100)}% conf.</span>
-                          {signal.dataMode === "DEMO" && <span className="font-mono text-[8px] text-[#c4b5fd]">DEMO</span>}
                         </div>
                         <p className="mt-1 text-[11px] font-medium leading-snug text-foreground/85">{signal.title}</p>
                         <p className="mt-0.5 line-clamp-2 text-[10px] leading-relaxed text-muted-foreground/55 print-muted">{signal.summary}</p>

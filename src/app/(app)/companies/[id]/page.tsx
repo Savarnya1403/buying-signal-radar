@@ -15,7 +15,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   CompanyAvatar,
-  DemoBanner,
   ExternalLink,
   ScoreRing,
   SignalBadge,
@@ -118,7 +117,6 @@ export default async function CompanyDetailPage({ params }: { params: Promise<{ 
   const bestPath = paths[0] ?? null;
   const introRequest = bestPath ? suggestIntroductionRequest(bestPath, workspace.name === "My workspace" ? "me" : workspace.name) : null;
   const website = company.website && /^https?:\/\//i.test(company.website) ? company.website : company.domain ? `https://${company.domain}` : null;
-  const demo = company.isDemo || company.signals.some((signal) => signal.dataMode === "DEMO");
 
   return (
     <div>
@@ -128,9 +126,9 @@ export default async function CompanyDetailPage({ params }: { params: Promise<{ 
         eyebrow={prospect && rank ? `Rank #${rank} · ${icp?.productCategory ?? "ICP"}` : "Company profile"}
         title={
           <span className="flex flex-wrap items-center gap-3">
-            <CompanyAvatar name={company.name} size={44} demo={company.isDemo} />
+            <CompanyAvatar name={company.name} size={44} />
             {company.name}
-            {demo ? <Badge variant="demo">Demo company</Badge> : <Badge variant="outline" className="font-mono text-[9px]">LIVE</Badge>}
+            <Badge variant="outline" className="font-mono text-[9px]">LIVE</Badge>
           </span>
         }
         description={
@@ -181,8 +179,6 @@ export default async function CompanyDetailPage({ params }: { params: Promise<{ 
         }
       />
 
-      {demo && <div className="mb-4"><DemoBanner compact /></div>}
-
       <div className="grid gap-4 xl:grid-cols-[1.55fr_1fr]">
         <div className="space-y-4">
           {prospect ? (
@@ -205,7 +201,7 @@ export default async function CompanyDetailPage({ params }: { params: Promise<{ 
                 <p className="text-[11px] leading-relaxed text-muted-foreground/65">
                   <span className="font-medium text-foreground/80">Priority formula.</span>{" "}
                   {breakdown?.priority.formula
-                    ? `${breakdown.priority.formula} — ICP weight ${breakdown.priority.icpWeight}, signal weight ${breakdown.priority.signalWeight}.`
+                    ? `${breakdown.priority.formula} — ICP weight ${breakdown.priority.icpWeight}, signal weight ${breakdown.priority.signalWeight}.${breakdown.priority.capReason ? ` ${breakdown.priority.capReason}` : ""}`
                     : `Weighted blend of ICP fit ${prospect.icpScore} and signal strength ${prospect.signalScore}.`}{" "}
                   <Link href="/settings" className="text-signal-lime/80 underline-offset-2 hover:underline">Tune weights</Link>
                 </p>
@@ -232,7 +228,7 @@ export default async function CompanyDetailPage({ params }: { params: Promise<{ 
                               "h-full rounded-full",
                               component.status === "matched" ? "bg-signal-lime/75" :
                               component.status === "partial" ? "bg-signal-amber/70" :
-                              component.status === "excluded" ? "bg-destructive/70" : "bg-white/20",
+                              component.status === "excluded" || component.status === "mismatch" ? "bg-destructive/70" : "bg-white/20",
                             )}
                             style={{ width: `${component.max > 0 ? Math.min(100, (component.points / component.max) * 100) : 0}%` }}
                           />
@@ -311,7 +307,6 @@ export default async function CompanyDetailPage({ params }: { params: Promise<{ 
                       <span className="text-[10px] text-muted-foreground/55">{formatDate(signal.publishedAt ?? signal.discoveredAt)}</span>
                       <span className="text-muted-foreground/25">·</span>
                       <span className="font-mono text-[9px] text-muted-foreground/45">{Math.round(signal.confidence * 100)}% conf.</span>
-                      {signal.dataMode === "DEMO" && <Badge variant="demo">Demo</Badge>}
                     </div>
                     <h3 className="mt-2 text-[14px] font-medium leading-snug text-foreground/90">{signal.title}</h3>
                     <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground/65">{signal.summary}</p>

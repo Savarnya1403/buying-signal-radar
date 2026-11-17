@@ -49,10 +49,35 @@ export type DefaultSource = {
   description: string;
 };
 
+const INDUSTRY_FEED_TAGS: Record<string, string> = {
+  "B2B SaaS": "saas",
+  Fintech: "fintech",
+  "Developer tools": "developer-tools",
+  Healthtech: "health-tech",
+  "E-commerce": "ecommerce",
+  Logistics: "logistics",
+  Cybersecurity: "cybersecurity",
+  "AI / ML": "artificial-intelligence",
+  "Climate tech": "climate",
+  Manufacturing: "enterprise",
+  "Marketing technology": "martech",
+  "HR technology": "hr-tech",
+  "Real estate": "real-estate",
+  Education: "education",
+  "Travel & hospitality": "travel",
+  "Media & entertainment": "media",
+  Insurtech: "insurtech",
+  Retail: "retail",
+  Telecom: "telecom",
+  Biotech: "biotech",
+};
+
 export function buildDefaultSources(icp: ConnectorIcp): DefaultSource[] {
   const focus = [icp.productCategory, icp.targetIndustries[0]].filter(Boolean).join(" ");
   const role = icp.buyerRoles[0]?.replace(/\s*\/.*$/, "") ?? icp.targetIndustries[0] ?? "sales";
   const query = focus.trim().split(/\s+/).slice(0, 6).join(" ") || "B2B software";
+  const industry = icp.targetIndustries[0];
+  const tag = industry ? INDUSTRY_FEED_TAGS[industry] : undefined;
 
   const sources: DefaultSource[] = [
     {
@@ -63,20 +88,68 @@ export function buildDefaultSources(icp: ConnectorIcp): DefaultSource[] {
       description: "Public startup funding, launch and leadership headlines with a link to every article.",
     },
     {
+      type: "RSS",
+      name: "TechCrunch · Venture & funding",
+      url: "https://techcrunch.com/category/venture/feed/",
+      config: { feedUrl: "https://techcrunch.com/category/venture/feed/", maxItems: 20 },
+      description: "Public funding rounds and investor coverage — the strongest early signal that headcount is about to grow.",
+    },
+  ];
+
+  if (tag) {
+    sources.push({
+      type: "RSS",
+      name: `TechCrunch · ${industry} coverage`,
+      url: `https://techcrunch.com/tag/${tag}/feed/`,
+      config: { feedUrl: `https://techcrunch.com/tag/${tag}/feed/`, maxItems: 20 },
+      description: `Public ${industry.toLowerCase()} coverage from TechCrunch, matched to the first target industry on your ICP.`,
+    });
+  }
+
+  sources.push(
+    {
+      type: "RSS",
+      name: "Tech.eu · European startups",
+      url: "https://tech.eu/feed/",
+      config: { feedUrl: "https://tech.eu/feed/", maxItems: 20 },
+      description: "Public European startup funding and expansion news, including rounds outside the US.",
+    },
+    {
+      type: "RSS",
+      name: "Crunchbase News · Funding",
+      url: "https://news.crunchbase.com/feed/",
+      config: { feedUrl: "https://news.crunchbase.com/feed/", maxItems: 15 },
+      description: "Public funding-round reporting with named companies and round sizes.",
+    },
+    {
+      type: "HN",
+      name: "Hacker News · Funding chatter",
+      url: "https://news.ycombinator.com/",
+      config: { query: "raises", tags: "story", minPoints: 5, maxItems: 15 },
+      description: "Public Hacker News stories about companies raising money, matched by the Algolia API.",
+    },
+    {
       type: "HN",
       name: "Hacker News · Show HN launches",
       url: "https://news.ycombinator.com/",
-      config: { query, tags: "show_hn", minPoints: 2, maxItems: 12 },
+      config: { query: "", tags: "show_hn", minPoints: 2, maxItems: 15 },
       description: "Public Show HN launch posts from the Hacker News Algolia API, matched to your product category.",
     },
     {
       type: "JOB_FEED",
       name: "Remotive · Hiring search",
       url: "https://remotive.com/",
-      config: { provider: "remotive", query: role, maxItems: 12 },
+      config: { provider: "remotive", query: role, maxItems: 15 },
       description: "Public remote-job listings matching a buyer role or industry. Attribution and listing links are preserved.",
     },
-  ];
+    {
+      type: "JOB_FEED",
+      name: "Jobicy · Hiring tag",
+      url: "https://jobicy.com/",
+      config: { provider: "jobicy", tag: (industry ?? role).toLowerCase().slice(0, 40), maxItems: 15 },
+      description: "Public Jobicy feed for the closest industry tag, useful for companies hiring outside the remote-first bubble.",
+    },
+  );
 
   if (process.env.TAVILY_API_KEY || process.env.BRAVE_SEARCH_API_KEY) {
     sources.push({
@@ -125,7 +198,7 @@ export const CONNECTOR_CATALOG = [
     label: jobFeedConnector.label,
     description: jobFeedConnector.description,
     permission: "Public job-board APIs and ATS feeds with attribution. No LinkedIn scraping.",
-    example: "Remotive search, Jobicy tag, Greenhouse or Lever board token",
+    example: "Remotive search, Jobicy tag, or a domain watchlist that auto-detects Greenhouse, Lever or Ashby",
     available: true,
   },
   {

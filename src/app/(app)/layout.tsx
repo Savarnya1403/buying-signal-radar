@@ -7,14 +7,13 @@ export const dynamic = "force-dynamic";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const workspace = await ensureWorkspace();
-  const [icp, signalCount, demoSignals, savedCount, contactCount, sources] = await Promise.all([
+  const [icp, signalCount, savedCount, contactCount, sources] = await Promise.all([
     prisma.icpProfile.findFirst({
       where: { workspaceId: workspace.id, isConfirmed: true },
       orderBy: { createdAt: "desc" },
       select: { productCategory: true, targetIndustries: true },
     }),
     prisma.signal.count({ where: { workspaceId: workspace.id } }),
-    prisma.signal.count({ where: { workspaceId: workspace.id, dataMode: "DEMO" } }),
     prisma.prospect.count({ where: { workspaceId: workspace.id, status: { in: ["SAVED", "CONTACTED"] } } }),
     prisma.contact.count({ where: { workspaceId: workspace.id } }),
     prisma.source.findMany({
@@ -33,12 +32,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         workspaceName={workspace.name}
         category={icp?.productCategory ?? null}
         signalCount={signalCount}
-        demoCount={demoSignals}
         savedCount={savedCount}
         contactCount={contactCount}
         failingSources={failingSources}
       />
-      <MobileBar savedCount={savedCount} demoCount={demoSignals} />
+      <MobileBar savedCount={savedCount} />
       <main className="relative z-10 pb-20 pt-16 md:pl-[252px] md:pt-0">
         <div className="mx-auto w-full max-w-[1480px] px-4 py-6 sm:px-6 md:px-8 md:py-9">{children}</div>
       </main>

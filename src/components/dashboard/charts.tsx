@@ -2,7 +2,7 @@
 
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
-export type VolumePoint = { day: string; live: number; demo: number };
+export type VolumePoint = { day: string; live: number };
 
 export function SignalVolumeChart({ data }: { data: VolumePoint[] }) {
   return (
@@ -35,10 +35,9 @@ export function SignalVolumeChart({ data }: { data: VolumePoint[] }) {
               padding: "6px 10px",
             }}
             labelStyle={{ color: "rgba(148,163,184,0.7)", fontSize: 10 }}
-            formatter={(value, name) => [value ?? 0, name === "live" ? "Live signals" : "Demo signals"]}
+            formatter={(value) => [value ?? 0, "Signals"]}
           />
           <Bar dataKey="live" stackId="a" fill="#b8f26a" fillOpacity={0.8} radius={[3, 3, 0, 0]} />
-          <Bar dataKey="demo" stackId="a" fill="#a78bfa" fillOpacity={0.5} radius={[3, 3, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
     </div>

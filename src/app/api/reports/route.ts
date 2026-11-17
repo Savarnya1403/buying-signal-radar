@@ -7,7 +7,6 @@ import { SIGNAL_META } from "@/lib/signals";
 
 const schema = z.object({
   title: z.string().trim().min(3).max(140).optional(),
-  includeDemo: z.boolean().default(true),
 });
 
 export async function GET() {
@@ -47,10 +46,8 @@ export async function POST(request: NextRequest) {
       take: 50,
     });
 
-    if (!payload.includeDemo) {
-      // Filtering happens below; reports never contain contact data either way.
-    }
-    const included = prospects.filter((prospect) => payload.includeDemo || !prospect.company.isDemo);
+    // Reports never contain contact, note or graph data either way.
+    const included = prospects;
     if (included.length === 0) {
       return apiError("No prospects to include. Run discovery first.", 409, "NO_PROSPECTS");
     }
@@ -69,10 +66,6 @@ export async function POST(request: NextRequest) {
     const dateRangeStart = allDates.length > 0 ? new Date(Math.min(...allDates.map((date) => date.getTime()))) : new Date(Date.now() - 30 * 86_400_000);
     const dateRangeEnd = allDates.length > 0 ? new Date(Math.max(...allDates.map((date) => date.getTime()))) : new Date();
 
-    const demoCompanyCount = included.filter((prospect) => prospect.company.isDemo).length;
-    const liveCompanyCount = included.length - demoCompanyCount;
-    const dataMode = liveCompanyCount === 0 ? "DEMO" : "LIVE";
-
     const rankings = included.map((prospect, index) => ({
       rank: index + 1,
       company: prospect.company.name,
@@ -85,7 +78,6 @@ export async function POST(request: NextRequest) {
       icpScore: prospect.icpScore,
       signalScore: prospect.signalScore,
       priorityScore: prospect.priorityScore,
-      dataMode: prospect.company.isDemo ? "DEMO" : "LIVE",
       buyerRoleHypotheses: [
         ...new Set(
           prospect.company.signals.flatMap((signal) =>
@@ -103,7 +95,6 @@ export async function POST(request: NextRequest) {
         publishedAt: signal.publishedAt?.toISOString() ?? null,
         discoveredAt: signal.discoveredAt.toISOString(),
         confidence: signal.confidence,
-        dataMode: signal.dataMode,
       })),
     }));
 
@@ -121,9 +112,6 @@ export async function POST(request: NextRequest) {
         buyerRoles: icp.buyerRoles,
         selectedSignalTypes: icp.selectedSignalTypes,
       },
-      dataMode,
-      demoCompanyCount,
-      liveCompanyCount,
       signalBreakdown: Object.fromEntries(signalCounts),
       disclaimer:
         "Scores are ICP-fit and buying-signal indices, not probabilities of purchase. Estimates and unverified fields are labelled. This report contains no contacts, notes or referral-graph data.",
@@ -141,7 +129,6 @@ export async function POST(request: NextRequest) {
         payload: payloadSnapshot,
         dateRangeStart,
         dateRangeEnd,
-        dataMode,
       },
     });
 

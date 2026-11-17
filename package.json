@@ -15,7 +15,6 @@
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
-    "db:seed": "tsx --conditions=react-server prisma/seed.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {

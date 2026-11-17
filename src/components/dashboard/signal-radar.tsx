@@ -13,7 +13,6 @@ export type RadarSignal = {
   title: string;
   daysAgo: number;
   confidence: number;
-  demo: boolean;
 };
 
 function hash(value: string) {
@@ -30,11 +29,9 @@ function radiusFor(days: number) {
 
 export function SignalRadar({
   signals,
-  demo,
   className,
 }: {
   signals: RadarSignal[];
-  demo?: boolean;
   className?: string;
 }) {
   const [active, setActive] = useState<string | null>(null);
@@ -79,17 +76,13 @@ export function SignalRadar({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {demo ? (
-            <span className="rounded border border-[#a78bfa]/25 bg-[#a78bfa]/10 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider text-[#c4b5fd]">Demo</span>
-          ) : (
-            <span className="flex items-center gap-1.5 font-mono text-[9px] uppercase tracking-wider text-signal-lime/80">
-              <span className="relative flex h-1.5 w-1.5">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-signal-lime opacity-60" />
-                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-signal-lime" />
-              </span>
-              Live scan
+          <span className="flex items-center gap-1.5 font-mono text-[9px] uppercase tracking-wider text-signal-lime/80">
+            <span className="relative flex h-1.5 w-1.5">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-signal-lime opacity-60" />
+              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-signal-lime" />
             </span>
-          )}
+            Live scan
+          </span>
         </div>
       </div>
 
@@ -166,11 +159,10 @@ export function SignalRadar({
                   cx={blip.x}
                   cy={blip.y}
                   r={isActive ? blip.size + 2.5 : blip.size}
-                  fill={blip.demo ? "transparent" : blip.meta.hex}
-                  fillOpacity={blip.demo ? 0 : 0.9}
+                  fill={blip.meta.hex}
+                  fillOpacity={0.9}
                   stroke={blip.meta.hex}
-                  strokeWidth={blip.demo ? 1.2 : 1}
-                  strokeDasharray={blip.demo ? "1.5 2" : undefined}
+                  strokeWidth={1}
                   style={{ filter: `drop-shadow(0 0 ${isActive ? 7 : 3}px ${blip.meta.hex}80)`, transition: "r 150ms" }}
                 />
                 {isActive && <circle cx={blip.x} cy={blip.y} r={blip.size + 6} fill="none" stroke={blip.meta.hex} strokeOpacity="0.3" />}
@@ -195,7 +187,6 @@ export function SignalRadar({
               <span className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground/70">
                 {SIGNAL_META[activeSignal.type as keyof typeof SIGNAL_META]?.label}
               </span>
-              {activeSignal.demo && <span className="font-mono text-[8px] text-[#c4b5fd]">DEMO</span>}
             </div>
             <p className="mt-1 text-[11px] font-medium leading-snug text-foreground">{activeSignal.company}</p>
             <p className="mt-1 line-clamp-2 text-[10px] leading-snug text-muted-foreground">{activeSignal.title}</p>

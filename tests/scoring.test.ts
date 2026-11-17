@@ -45,8 +45,13 @@ describe("scoreProspect", () => {
     const result = scoreProspect(icp, company, [signal({ id: "s1", type: "FUNDING" })], DEFAULT_SCORING_CONFIG, now);
     expect(result.icpScore).toBeGreaterThanOrEqual(80);
     expect(result.signalScore).toBeGreaterThanOrEqual(50);
+    const fitMultiplier = 0.35 + 0.65 * (result.icpScore / 100);
     expect(result.priorityScore).toBe(
-      Math.round((result.icpScore * DEFAULT_SCORING_CONFIG.priorityIcpWeight + result.signalScore * DEFAULT_SCORING_CONFIG.prioritySignalWeight) / (DEFAULT_SCORING_CONFIG.priorityIcpWeight + DEFAULT_SCORING_CONFIG.prioritySignalWeight)),
+      Math.round(
+        (result.icpScore * DEFAULT_SCORING_CONFIG.priorityIcpWeight +
+          result.signalScore * DEFAULT_SCORING_CONFIG.prioritySignalWeight * fitMultiplier) /
+          (DEFAULT_SCORING_CONFIG.priorityIcpWeight + DEFAULT_SCORING_CONFIG.prioritySignalWeight),
+      ),
     );
     expect(result.breakdown.icp.components.some((component) => component.key === "industry" && component.status === "matched")).toBe(true);
     expect(result.breakdown.priority.formula).toContain("×");
@@ -105,6 +110,27 @@ describe("scoreProspect", () => {
     );
     expect(diverse.breakdown.signal.distinctCategories).toBe(2);
     expect(diverse.signalScore).toBeGreaterThan(recent.signalScore);
+  });
+
+  it("marks a known industry that misses the ICP as a mismatch", () => {
+    const result = scoreProspect(icp, { ...company, industry: "Logistics" }, [signal({ id: "s1", type: "FUNDING" })], DEFAULT_SCORING_CONFIG, now);
+    const industry = result.breakdown.icp.components.find((component) => component.key === "industry");
+    expect(industry?.status).toBe("mismatch");
+    expect(industry?.points).toBe(0);
+  });
+
+  it("does not let a strong signal outrank a better-fitting company", () => {
+    const strongSignal = [signal({ id: "s1", type: "FUNDING" }), signal({ id: "s2", type: "HIRING" }), signal({ id: "s3", type: "PRODUCT_LAUNCH" })];
+    const poorFit = scoreProspect(
+      icp,
+      { ...company, industry: null, location: null, employeeCount: null, employeeRange: null },
+      strongSignal,
+      DEFAULT_SCORING_CONFIG,
+      now,
+    );
+    const goodFit = scoreProspect(icp, company, [signal({ id: "s1", type: "FUNDING" })], DEFAULT_SCORING_CONFIG, now);
+    expect(goodFit.priorityScore).toBeGreaterThan(poorFit.priorityScore);
+    expect(poorFit.breakdown.priority.signalFitMultiplier).toBeLessThan(1);
   });
 
   it("respects custom priority weights", () => {

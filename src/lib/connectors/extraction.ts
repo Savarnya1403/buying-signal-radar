@@ -1,3 +1,5 @@
+import { INDUSTRIES } from "@/lib/icp/taxonomy";
+
 const COMPANY_SUFFIXES = /\b(inc|inc\.|llc|ltd|ltd\.|limited|corp|corp\.|corporation|gmbh|ag|sa|sas|bv|plc|pty|oy|ab|as|co\.|company)\b\.?$/i;
 
 export function stripHtml(html: string): string {
@@ -80,9 +82,15 @@ const GENERIC_NAMES = new Set([
 
 export type CompanyExtraction = { name: string; confidence: number; pattern: string };
 
+const NEWS_PREFIX = /^(?:exclusive|breaking|report|update|analysis|opinion|watch|video)\s*[:\-]\s*/i;
+const DESCRIPTOR_PREFIX =
+  /^(?:(?:[A-Za-z][\w&.'-]*\s+){0,4})(?:startup|fintech|healthtech|medtech|defencetech|insurtech|proptech|edtech|regtech|legaltech|martech|climatech|cleantech|biotech|devtools|ai)\s+/i;
+
 function cleanCandidate(raw: string): string {
   let candidate = normalizeCompanyName(raw)
     .replace(/^(?:show hn|launch hn|ask hn)\s*[:\-]\s*/i, "")
+    .replace(NEWS_PREFIX, "")
+    .replace(DESCRIPTOR_PREFIX, "")
     .replace(/\s+(?:raises|raised|secures|secured|closes|lands|nabs|announces|launches|unveils|introduces|appoints|names|acquires|partners)\b.*$/i, "")
     .replace(/\s*[|–—-]\s*.*$/, "")
     .replace(/^["'“”]|["'“”]$/g, "")
@@ -110,6 +118,9 @@ export function extractCompanyFromHeadline(title: string): CompanyExtraction | n
     const lower = name.toLowerCase();
     if (name.length < 2 || GENERIC_NAMES.has(lower) || /^\d/.test(name)) continue;
     if (name.split(/\s+/).length > 6) continue;
+    // A person, an investor or an unnamed "alum" is not a prospect company.
+    if (/\b(?:alum|alumnus|alumni|founder|co-founder|veteran|investor)\b/i.test(name)) continue;
+    if (/\b(?:capital|ventures|partners|equity|fund|vc)$/i.test(name)) continue;
     return { name, confidence, pattern };
   }
   return null;
@@ -131,11 +142,22 @@ export function extractRolesFromText(text: string, limit = 8): string[] {
   return [...roles];
 }
 
+/**
+ * Infers a target industry from text using the same aliases the ICP interpreter
+ * understands, so "payments" can support a "Fintech" profile. Word boundaries
+ * and plurals are tolerated; short generic words never match on their own.
+ */
 export function inferIndustry(text: string, targetIndustries: string[]): { industry: string | null; confidence: number } {
   const lower = text.toLowerCase();
   for (const industry of targetIndustries) {
-    const words = industry.toLowerCase().split(/[\s/&]+/).filter((word) => word.length > 3);
-    if (words.some((word) => lower.includes(word))) return { industry, confidence: 0.6 };
+    const taxonomy = INDUSTRIES.find((entry) => entry.label.toLowerCase() === industry.toLowerCase());
+    const aliases = taxonomy?.aliases ?? [industry.toLowerCase()];
+    const hit = aliases.some((alias) => {
+      if (alias.length < 4) return false;
+      const pattern = new RegExp(`(?<![a-z0-9])${alias.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?:s|es)?(?![a-z0-9])`, "i");
+      return pattern.test(lower);
+    });
+    if (hit) return { industry, confidence: taxonomy ? 0.65 : 0.55 };
   }
   return { industry: null, confidence: 0 };
 }

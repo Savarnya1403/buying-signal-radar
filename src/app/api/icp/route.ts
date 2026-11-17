@@ -22,7 +22,6 @@ const schema = z.object({
   discoveryPeriodDays: z.number().int().min(1).max(365),
   confidence: z.number().min(0).max(1).optional(),
   rationale: z.unknown().optional(),
-  isDemo: z.boolean().optional(),
 });
 
 export async function GET() {
@@ -67,7 +66,6 @@ export async function POST(request: NextRequest) {
         confidence: payload.confidence ?? 0.5,
         rationale: (payload.rationale ?? {}) as Prisma.InputJsonValue,
         isConfirmed: true,
-        isDemo: payload.isDemo ?? false,
         version: (existingIcp?.version ?? 0) + 1,
       },
     });

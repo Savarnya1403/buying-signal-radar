@@ -32,7 +32,6 @@ export function AppSidebar({
   workspaceName,
   category,
   signalCount,
-  demoCount,
   savedCount,
   contactCount,
   failingSources,
@@ -40,14 +39,11 @@ export function AppSidebar({
   workspaceName: string;
   category: string | null;
   signalCount: number;
-  demoCount: number;
   savedCount: number;
   contactCount: number;
   failingSources: number;
 }) {
   const pathname = usePathname();
-  const isDemo = signalCount > 0 && demoCount === signalCount;
-
   return (
     <aside className="fixed inset-y-0 left-0 z-30 hidden w-[252px] flex-col border-r border-white/[0.06] bg-[#070a0e]/95 backdrop-blur-xl md:flex">
       <div className="px-5 pb-5 pt-6">
@@ -70,12 +66,10 @@ export function AppSidebar({
               {category ?? "No ICP yet"}
             </p>
           </div>
-          <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", isDemo ? "bg-signal-violet" : "bg-signal-lime")} />
+          <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", signalCount > 0 ? "bg-signal-lime" : "bg-muted-foreground/40")} />
         </div>
         <div className="mt-2.5 flex items-center gap-1.5">
-          {isDemo ? (
-            <Badge variant="demo">Demo data</Badge>
-          ) : signalCount > 0 ? (
+          {signalCount > 0 ? (
             <Badge variant="primary" className="gap-1 px-1.5 py-0 font-mono text-[9px]">
               <span className="h-1 w-1 animate-pulse rounded-full bg-signal-lime" /> LIVE
             </Badge>

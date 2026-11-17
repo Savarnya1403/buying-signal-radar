@@ -1,6 +1,5 @@
 import { PageHeader } from "@/components/shell/page-header";
 import { Button } from "@/components/ui/button";
-import { DemoLoader } from "@/components/demo/demo-loader";
 import { ReferralGraph } from "@/components/referral/referral-graph";
 import { ensureWorkspace } from "@/lib/workspace";
 import { prisma } from "@/lib/db";
@@ -11,7 +10,7 @@ export const dynamic = "force-dynamic";
 export default async function ReferralPage() {
   const workspace = await ensureWorkspace();
 
-  const [contacts, relationships, companies, demoContacts] = await Promise.all([
+  const [contacts, relationships, companies] = await Promise.all([
     prisma.contact.findMany({
       where: { workspaceId: workspace.id },
       include: { company: { select: { id: true, name: true, domain: true, industry: true } } },
@@ -26,7 +25,6 @@ export default async function ReferralPage() {
       select: { id: true, name: true, domain: true, industry: true },
       orderBy: { name: "asc" },
     }),
-    prisma.contact.count({ where: { workspaceId: workspace.id, isDemo: true } }),
   ]);
 
   const serialisedContacts = contacts.map((contact) => ({
@@ -41,7 +39,6 @@ export default async function ReferralPage() {
     verified: contact.verified,
     firstDegree: contact.firstDegree,
     notes: contact.notes,
-    isDemo: contact.isDemo,
   }));
 
   const serialisedRelationships = relationships.map((relationship) => ({
@@ -70,13 +67,6 @@ export default async function ReferralPage() {
         }
       />
 
-      {demoContacts > 0 && (
-        <div className="mb-4 flex items-start gap-2 rounded-lg border border-[#a78bfa]/20 bg-[#a78bfa]/[0.055] px-4 py-2.5 text-[11px] leading-relaxed text-[#c4b5fd]/80">
-          <span className="font-medium text-[#ddd6fe]">Demo contacts.</span>
-          Some contacts and relationships in this graph are synthetic. They are labelled inside the graph and are never included in shared reports.
-        </div>
-      )}
-
       <ReferralGraph
         contacts={serialisedContacts}
         relationships={serialisedRelationships}
@@ -104,7 +94,6 @@ export default async function ReferralPage() {
           <p className="text-[10px] leading-relaxed text-muted-foreground/50">
             Privacy: the graph is stored in this workspace only. Shared reports exclude contacts, notes and referral data. Deleting a contact removes its relationships.
           </p>
-          <DemoLoader variant="ghost" size="sm" />
         </div>
       )}
     </div>

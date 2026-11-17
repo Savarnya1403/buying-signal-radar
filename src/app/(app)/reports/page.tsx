@@ -27,12 +27,10 @@ export default async function ReportsPage() {
           title: report.title,
           industry: report.industry,
           companyCount: report.companyCount,
-          dataMode: report.dataMode,
           createdAt: report.createdAt.toISOString(),
           dateRangeStart: report.dateRangeStart.toISOString(),
           dateRangeEnd: report.dateRangeEnd.toISOString(),
           signalBreakdown: (report.signalBreakdown ?? {}) as Record<string, number>,
-          payload: (report.payload ?? {}) as { demoCompanyCount?: number; liveCompanyCount?: number; disclaimer?: string },
         }))}
       />
     </div>

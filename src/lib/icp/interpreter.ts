@@ -65,6 +65,14 @@ function sentences(text: string) {
     .filter(Boolean);
 }
 
+/**
+ * Word-boundary match that tolerates plurals ("fintechs", "sales leaders"),
+ * which is how people actually describe their market.
+ */
+function aliasPattern(alias: string) {
+  return new RegExp(`(?<![a-z0-9])${escapeRegex(alias.toLowerCase())}(?:s|es)?(?![a-z0-9])`, "i");
+}
+
 function finding(text: string, entries: TaxonomyEntry[], limit = 12): { labels: string[]; evidence: string[] } {
   const haystack = normalize(text).toLowerCase();
   const labels: string[] = [];
@@ -72,18 +80,12 @@ function finding(text: string, entries: TaxonomyEntry[], limit = 12): { labels: 
   const all = sentences(text);
 
   for (const entry of entries) {
-    const hit = entry.aliases.some((alias) => {
-      const pattern = new RegExp(`(?<![a-z0-9])${escapeRegex(alias.toLowerCase())}(?![a-z0-9])`, "i");
-      return pattern.test(haystack);
-    });
+    const hit = entry.aliases.some((alias) => aliasPattern(alias).test(haystack));
     if (!hit) continue;
     if (!labels.includes(entry.label)) labels.push(entry.label);
     const source = all.find((sentence) => {
       const lower = sentence.toLowerCase();
-      return entry.aliases.some((alias) => {
-        const pattern = new RegExp(`(?<![a-z0-9])${escapeRegex(alias.toLowerCase())}(?![a-z0-9])`, "i");
-        return pattern.test(lower);
-      });
+      return entry.aliases.some((alias) => aliasPattern(alias).test(lower));
     });
     if (source && !evidence.includes(source)) evidence.push(source);
     if (labels.length >= limit) break;
@@ -300,9 +302,7 @@ function extractGeography(text: string): { values: string[]; evidence: string[];
     const source = all.find(
       (sentence) =>
         !isNegated(sentence) &&
-        entry.aliases.some((alias) =>
-          new RegExp(`(?<![a-z0-9])${escapeRegex(alias.toLowerCase())}(?![a-z0-9])`, "i").test(sentence.toLowerCase()),
-        ),
+        entry.aliases.some((alias) => aliasPattern(alias).test(sentence.toLowerCase())),
     );
     if (!source) continue;
     values.push(label);

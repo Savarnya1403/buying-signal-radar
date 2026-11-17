@@ -42,7 +42,7 @@ export type ScoreComponent = {
   label: string;
   points: number;
   max: number;
-  status: "matched" | "partial" | "unknown" | "excluded";
+  status: "matched" | "partial" | "unknown" | "mismatch" | "excluded";
   reason: string;
 };
 
@@ -72,8 +72,12 @@ export type ScoreBreakdown = {
   };
   priority: {
     total: number;
+    uncappedTotal: number;
     icpWeight: number;
     signalWeight: number;
+    signalFitMultiplier: number;
+    cap: number | null;
+    capReason: string | null;
     formula: string;
   };
   configVersion: "default-v1";
@@ -175,10 +179,10 @@ function sizeFit(icp: ScoringIcp, company: ScoringCompany, maxPoints: number): S
     return {
       key: "size",
       label: "Company size",
-      points: points(maxPoints * 0.35),
+      points: points(maxPoints * 0.2),
       max: maxPoints,
       status: "unknown",
-      reason: "Headcount is not verified for this company. Neutral partial credit — marked as unverified.",
+      reason: "Headcount is not verified for this company. Small neutral credit only — marked as unverified.",
     };
   }
 
@@ -267,14 +271,14 @@ export function scoreProspect(
   components.push({
     key: "industry",
     label: "Industry fit",
-    points: points(industryHit ? weights.industry * scale : knownIndustry ? 0 : weights.industry * scale * 0.35),
+    points: points(industryHit ? weights.industry * scale : 0),
     max: points(weights.industry * scale),
-    status: industryHit ? "matched" : knownIndustry ? "matched" : "unknown",
+    status: industryHit ? "matched" : knownIndustry ? "mismatch" : "unknown",
     reason: industryHit
       ? `${company.industry} matches your target industry “${industryHit}”.`
       : knownIndustry
         ? `${company.industry} is not in your target industries.`
-        : "Industry is not verified for this company. Partial neutral credit — treat as an estimate.",
+        : "Industry is not verified for this company. No fit credit is given without evidence, and priority is capped.",
   });
 
   const size = sizeFit(icp, company, weights.size * scale);
@@ -284,9 +288,9 @@ export function scoreProspect(
   components.push({
     key: "geography",
     label: "Geography fit",
-    points: points(geoHit ? weights.geography * scale : company.location ? 0 : weights.geography * scale * 0.3),
+    points: points(geoHit ? weights.geography * scale : company.location ? 0 : weights.geography * scale * 0.15),
     max: points(weights.geography * scale),
-    status: geoHit ? "matched" : company.location ? "matched" : "unknown",
+    status: geoHit ? "matched" : company.location ? "mismatch" : "unknown",
     reason: geoHit
       ? `${company.location} is inside your ${geoHit} coverage.`
       : company.location
@@ -395,11 +399,31 @@ export function scoreProspect(
   const priorityIcpWeight = Math.max(0, config.priorityIcpWeight);
   const prioritySignalWeight = Math.max(0, config.prioritySignalWeight);
   const priorityTotalWeight = priorityIcpWeight + prioritySignalWeight || 1;
-  const priorityScore = clamp(
-    Math.round((icpScore * priorityIcpWeight + signalScore * prioritySignalWeight) / priorityTotalWeight),
+  // Signal strength should not carry a company that does not fit the profile.
+  // The signal term is discounted when ICP fit is low, while a fit-only
+  // configuration (icpWeight 100) stays exactly equal to the ICP score.
+  const signalFitMultiplier = 0.35 + 0.65 * (icpScore / 100);
+  const uncappedTotal = clamp(
+    Math.round(
+      (icpScore * priorityIcpWeight + signalScore * prioritySignalWeight * signalFitMultiplier) / priorityTotalWeight,
+    ),
     0,
     100,
   );
+
+  // Fit has to be evidence-backed. Without a verified industry the company can
+  // still be interesting, but it must not outrank a profile that does fit.
+  const industryConfigured = industryTargets.length > 0;
+  let cap: number | null = null;
+  let capReason: string | null = null;
+  if (industryConfigured && knownIndustry && !industryHit) {
+    cap = 35;
+    capReason = "Industry is verified but outside your target industries.";
+  } else if (industryConfigured && !knownIndustry) {
+    cap = 45;
+    capReason = "Industry is not verified for this company.";
+  }
+  const priorityScore = cap == null ? uncappedTotal : Math.min(uncappedTotal, cap);
 
   return {
     icpScore,
@@ -421,9 +445,13 @@ export function scoreProspect(
       },
       priority: {
         total: priorityScore,
+        uncappedTotal,
         icpWeight: priorityIcpWeight,
         signalWeight: prioritySignalWeight,
-        formula: `round((${icpScore} × ${priorityIcpWeight} + ${signalScore} × ${prioritySignalWeight}) / ${priorityTotalWeight})`,
+        signalFitMultiplier: Math.round(signalFitMultiplier * 100) / 100,
+        cap,
+        capReason,
+        formula: `round((${icpScore} × ${priorityIcpWeight} + ${signalScore} × ${prioritySignalWeight} × ${Math.round(signalFitMultiplier * 100) / 100} fit) / ${priorityTotalWeight})${cap == null ? "" : `, capped at ${cap}`}`,
       },
       configVersion: "default-v1",
       scoredAt: now.toISOString(),

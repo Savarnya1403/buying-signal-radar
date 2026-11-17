@@ -6,7 +6,7 @@ Thanks for considering a contribution. Buying Signal Radar is a small, opinionat
 
 1. **No invented data.** Relationships, evidence snippets, headcounts and locations must come from a source you can link to, or be explicitly marked unverified.
 2. **No authenticated scraping or bypass.** Do not add connectors that log in, evade robots.txt, rotate IPs or defeat anti-bot measures. PRs that do will be closed.
-3. **Demo data stays labelled.** Anything synthetic must use `.example` domains/emails and be tagged `dataMode: DEMO`.
+3. **No synthetic data path.** The product has no demo mode; fixtures may exist in tests but must never be written to a user workspace.
 4. **Scores are not probabilities.** Do not relabel priority scores as likelihood to buy.
 5. **Privacy by default.** Public reports must never include contacts, notes or relationship data.
 
@@ -37,7 +37,7 @@ npm run build
 - Next.js 15 route params and `cookies()` / `headers()` are asynchronous — await them.
 - UI: dark-first, `panel` surfaces, `label-mono` micro-labels, lime (`signal.lime`) as the primary accent, signal colours from `SIGNAL_META`.
 - Prefer small server components with client widgets only where interaction requires it.
-- Never call `Math.random()` for anything that affects stored demo data; the demo dataset is deterministic.
+- Connectors must be deterministic given the same upstream payload; keep parsing logic in pure functions so it can be tested without network access.
 
 ## Adding tests
 
@@ -53,7 +53,7 @@ Run `npm test` before pushing.
 
 For UI or pipeline changes, run the full journey once:
 
-- [ ] Load demo data from `/settings`; banner and DEMO badges appear
+- [ ] Confirm an ICP on `/discover`; default sources are created and discovery returns real companies
 - [ ] `/discover`: describe a product, review/edit ICP, choose sources, run
 - [ ] `/dashboard`: scores, radar blips and charts render; empty state works with no ICP
 - [ ] `/companies`: filters narrow results; sorting by priority is stable
@@ -82,7 +82,7 @@ Open an issue with:
 - what you expected and what happened,
 - exact reproduction steps,
 - the route or module involved,
-- whether demo mode was active,
+- which sources were enabled and the last run status from `/sources`,
 - relevant server logs with secrets removed.
 
 ## License

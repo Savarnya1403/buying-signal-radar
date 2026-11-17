@@ -65,7 +65,6 @@ type Contact = {
   verified: boolean;
   firstDegree: boolean;
   notes: string | null;
-  isDemo: boolean;
 };
 
 type Relationship = {
@@ -85,7 +84,6 @@ type PersonData = {
   title: string | null;
   company: string | null;
   verified: boolean;
-  demo: boolean;
   strength: number;
   firstDegree: boolean;
   highlighted: boolean;
@@ -124,7 +122,6 @@ function PersonNodeView({ data }: NodeProps<PersonNodeType>) {
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1">
             <p className="truncate text-[11px] font-medium text-foreground/90">{data.name}</p>
-            {data.demo && <span className="font-mono text-[7px] uppercase tracking-wider text-[#c4b5fd]">DEMO</span>}
           </div>
           <p className="truncate text-[9px] text-muted-foreground/55">{data.title ?? "Role unknown"}</p>
           {!data.firstDegree && <p className="mt-0.5 font-mono text-[7px] uppercase tracking-wider text-signal-amber/70">Introduction target</p>}
@@ -295,7 +292,6 @@ export function ReferralGraph({
             title: contact.jobTitle,
             company: group.name,
             verified: contact.verified,
-            demo: contact.isDemo,
             strength: contact.strength,
             firstDegree: contact.firstDegree,
             highlighted: inPath,
@@ -562,7 +558,6 @@ export function ReferralGraph({
                   <div className="flex items-center gap-1">
                     <p className="truncate text-[11px] font-medium text-foreground/85">{contact.name}</p>
                     {contact.verified && <ShieldCheck className="h-2.5 w-2.5 shrink-0 text-signal-mint/60" />}
-                    {contact.isDemo && <span className="font-mono text-[7px] uppercase tracking-wider text-[#c4b5fd]">DEMO</span>}
                   </div>
                   <p className="truncate text-[9px] text-muted-foreground/50">{contact.jobTitle ?? "Role unknown"}{contact.companyName ? ` · ${contact.companyName}` : ""}</p>
                   {!contact.firstDegree && <p className="font-mono text-[7px] uppercase tracking-wider text-signal-amber/70">Introduction target</p>}

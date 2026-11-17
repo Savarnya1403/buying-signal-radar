@@ -5,12 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   CompanyAvatar,
-  DemoBanner,
   EmptyState,
   SignalBadge,
 } from "@/components/shared/display";
 import { ProspectQuickActions } from "@/components/companies/prospect-quick-actions";
-import { DemoLoader } from "@/components/demo/demo-loader";
 import { ensureWorkspace } from "@/lib/workspace";
 import { prisma } from "@/lib/db";
 import { relativeTime, scoreTone, truncate } from "@/lib/utils";
@@ -20,23 +18,18 @@ export const dynamic = "force-dynamic";
 
 export default async function SavedPage() {
   const workspace = await ensureWorkspace();
-  const [prospects, demoSignals, totalSignals] = await Promise.all([
-    prisma.prospect.findMany({
-      where: { workspaceId: workspace.id, status: { in: ["SAVED", "CONTACTED"] } },
-      include: {
-        company: {
-          include: { signals: { orderBy: [{ publishedAt: "desc" }, { discoveredAt: "desc" }], take: 4 } },
-        },
+  const prospects = await prisma.prospect.findMany({
+    where: { workspaceId: workspace.id, status: { in: ["SAVED", "CONTACTED"] } },
+    include: {
+      company: {
+        include: { signals: { orderBy: [{ publishedAt: "desc" }, { discoveredAt: "desc" }], take: 4 } },
       },
-      orderBy: [{ contactedAt: "desc" }, { savedAt: "desc" }, { priorityScore: "desc" }],
-    }),
-    prisma.signal.count({ where: { workspaceId: workspace.id, dataMode: "DEMO" } }),
-    prisma.signal.count({ where: { workspaceId: workspace.id } }),
-  ]);
+    },
+    orderBy: [{ contactedAt: "desc" }, { savedAt: "desc" }, { priorityScore: "desc" }],
+  });
 
   const saved = prospects.filter((prospect) => prospect.status === "SAVED");
   const contacted = prospects.filter((prospect) => prospect.status === "CONTACTED");
-  const allDemo = totalSignals > 0 && demoSignals === totalSignals;
 
   return (
     <div>
@@ -51,8 +44,6 @@ export default async function SavedPage() {
           </>
         }
       />
-
-      {allDemo && <div className="mb-4"><DemoBanner compact /></div>}
 
       <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <div className="panel p-4">
@@ -85,10 +76,7 @@ export default async function SavedPage() {
           title="Nothing saved yet"
           description="Open a ranked company and save it when the evidence is worth acting on. Saved, contacted and disqualified statuses stay separate from the underlying scores."
           actions={
-            <>
-              <Button asChild><Link href="/companies"><Target /> Browse ranked companies</Link></Button>
-              <DemoLoader variant="outline" />
-            </>
+            <Button asChild><Link href="/companies"><Target /> Browse ranked companies</Link></Button>
           }
         />
       ) : (
@@ -150,7 +138,6 @@ function SavedSection({
       industry: string | null;
       location: string | null;
       employeeCount: number | null;
-      isDemo: boolean;
       signals: { id: string; type: string; title: string }[];
     };
   }[];
@@ -170,11 +157,10 @@ function SavedSection({
           <div key={prospect.id} className="relative grid gap-3 px-4 py-3.5 transition-colors hover:bg-white/[0.022] sm:grid-cols-[1fr_auto] sm:items-center">
             <Link href={`/companies/${prospect.company.id}`} className="absolute inset-0 z-0" aria-label={`Open ${prospect.company.name}`} />
             <div className="relative z-10 flex min-w-0 items-start gap-3">
-              <CompanyAvatar name={prospect.company.name} demo={prospect.company.isDemo} />
+              <CompanyAvatar name={prospect.company.name} />
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-1.5">
                   <p className="text-[13px] font-medium text-foreground">{prospect.company.name}</p>
-                  {prospect.company.isDemo && <Badge variant="demo">Demo</Badge>}
                   <span className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground/45">{prospect.company.industry ?? "Industry unverified"}</span>
                 </div>
                 <div className="mt-1 flex flex-wrap items-center gap-1.5">

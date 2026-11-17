@@ -6,9 +6,9 @@ Every source in Buying Signal Radar is an explicit connector with a Zod config s
 
 | `SourceType` | Connector | Default source | Requires key |
 | --- | --- | --- | --- |
-| `RSS` | RSS / Atom feeds | TechCrunch · Startup news | No |
+| `RSS` | RSS / Atom feeds | TechCrunch startups, venture and industry tags; Tech.eu; Crunchbase News | No |
 | `HN` | Hacker News Algolia API | Show HN launches matched to your category | No |
-| `JOB_FEED` | Remotive, Jobicy, Greenhouse, Lever | Remotive hiring search | No |
+| `JOB_FEED` | Remotive, Jobicy, Greenhouse, Lever, Ashby + ATS auto-detect | Remotive + Jobicy hiring search | No |
 | `WEBSITE` | Company-owned public pages | Added per company | No |
 | `URL` | Any page you submit | Empty by default | No |
 | `WEB_SEARCH` | Tavily or Brave Search API | Suggested when a key exists | Yes |
@@ -21,7 +21,7 @@ The catalogue is exported from `src/lib/connectors/index.ts` (`CONNECTOR_CATALOG
 | --- | --- | --- |
 | `RSS` | Public feeds intended for syndication | Paywalled or private feeds |
 | `HN` | Public Algolia search API | Scraping the HTML site at scale |
-| `JOB_FEED` | Public job APIs and ATS boards (Greenhouse, Lever) | LinkedIn, Indeed scraping, login-only boards |
+| `JOB_FEED` | Public job APIs and ATS boards (Greenhouse, Lever, Ashby), company careers pages | LinkedIn, Indeed scraping, login-only boards |
 | `WEBSITE` | Company-owned public pages | Auth, paywalls, anti-bot circumvention |
 | `URL` | A page the user explicitly submits | Crawling beyond that page |
 | `WEB_SEARCH` | Official Tavily/Brave API with your key | SERP scraping, rotating proxies |
@@ -86,6 +86,18 @@ Uses the public Algolia API (`https://hn.algolia.com/api/v1/search`). The discus
 { "provider": "lever", "boardToken": "acme", "maxItems": 20 }
 ```
 
+```json
+{ "provider": "ashby", "boardToken": "acme", "companyName": "Acme", "maxItems": 20 }
+```
+
+**Watchlist / auto-detect.** Give a list of domains and the connector resolves the public careers board behind each one:
+
+```json
+{ "provider": "auto", "domains": ["linear.app", "vercel.com", "ramp.com"], "maxItems": 24 }
+```
+
+Detection order: probe the public Ashby → Lever → Greenhouse APIs with the domain's first label, then read the company homepage and `/careers` pages and look for `jobs.ashbyhq.com`, `jobs.lever.co` or `boards.greenhouse.io` links. Up to 8 domains per source, and every role keeps its own listing URL.
+
 Hiring documents produce `HIRING` signals. The job listing URL is the evidence link.
 
 ### URL / website
@@ -111,6 +123,15 @@ The page parser extracts title, description, JSON-LD organisation facts (name, l
 ```
 
 `provider` is `tavily` or `brave`. The connector reads `TAVILY_API_KEY` or `BRAVE_SEARCH_API_KEY`; with neither set it reports `CONNECTOR_UNAVAILABLE` and the UI disables it.
+
+## Importing contacts
+
+Contacts are not a connector. `/referral` imports a CSV you already own:
+
+- The project's own template (`data/samples/contacts-sample.csv`).
+- A **LinkedIn connections export** (`Connections.csv`). The parser strips the `Notes:` preamble, joins `First Name` + `Last Name`, reads `URL`, `Company`, `Position` and `Connected On`, marks rows as direct connections and keeps the profile URL as a manual reference.
+
+LinkedIn profile pages are never fetched. `safeFetch` blocks `linkedin.com` at the host level, so no code path can turn a stored profile URL into a scrape.
 
 ## Adding a connector
 

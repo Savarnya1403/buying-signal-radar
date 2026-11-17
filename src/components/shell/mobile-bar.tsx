@@ -6,7 +6,6 @@ import { usePathname } from "next/navigation";
 import { Bookmark, Building2, FileText, LayoutDashboard, Menu, Network, Radar, Rss, Settings } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { RadarMark } from "@/components/brand/radar-mark";
-import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 const NAV = [
@@ -20,7 +19,7 @@ const NAV = [
   { href: "/settings", label: "Settings & scoring", icon: Settings },
 ];
 
-export function MobileBar({ savedCount, demoCount }: { savedCount: number; demoCount: number }) {
+export function MobileBar({ savedCount }: { savedCount: number }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
 
@@ -29,7 +28,6 @@ export function MobileBar({ savedCount, demoCount }: { savedCount: number; demoC
       <Link href="/dashboard" className="flex items-center gap-2 text-signal-lime">
         <RadarMark size={24} />
         <span className="text-[12px] font-semibold tracking-[0.14em] text-foreground">SIGNAL RADAR</span>
-        {demoCount > 0 && <Badge variant="demo" className="ml-1">Demo</Badge>}
       </Link>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger asChild>

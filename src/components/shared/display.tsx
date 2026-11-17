@@ -1,18 +1,7 @@
 import Link from "next/link";
-import { ArrowUpRight, Sparkles } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { ArrowUpRight } from "lucide-react";
 import { SIGNAL_META } from "@/lib/signals";
 import { cn, scoreTone } from "@/lib/utils";
-
-export function DataModeBadge({ demo, className }: { demo: boolean; className?: string }) {
-  return demo ? (
-    <Badge variant="demo" className={className}>Demo data</Badge>
-  ) : (
-    <Badge variant="primary" className={cn("gap-1 font-mono text-[10px] uppercase tracking-wider", className)}>
-      <span className="h-1 w-1 rounded-full bg-signal-lime" /> Live
-    </Badge>
-  );
-}
 
 export function SignalBadge({ type, compact = false }: { type: string; compact?: boolean }) {
   const meta = SIGNAL_META[type as keyof typeof SIGNAL_META] ?? SIGNAL_META.HIRING;
@@ -140,18 +129,6 @@ export function MetricCard({
   return href ? <Link href={href} className="block h-full">{content}</Link> : content;
 }
 
-export function DemoBanner({ compact = false }: { compact?: boolean }) {
-  return (
-    <div className={cn("flex items-start gap-3 rounded-lg border border-[#a78bfa]/20 bg-[#a78bfa]/[0.055] px-4 py-3", compact && "py-2.5")}>
-      <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#c4b5fd]" />
-      <div className="text-[11px] leading-relaxed text-[#c4b5fd]/80">
-        <span className="font-medium text-[#ddd6fe]">Demo workspace.</span> Companies, people, signals and evidence links are synthetic.
-        Nothing here is a live discovery. Load your own ICP and run live discovery to replace it.
-      </div>
-    </div>
-  );
-}
-
 export function Unverified({ children = "Unverified" }: { children?: React.ReactNode }) {
   return (
     <span className="inline-flex items-center gap-1 rounded border border-white/[0.08] bg-white/[0.025] px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider text-muted-foreground/55">
@@ -160,7 +137,7 @@ export function Unverified({ children = "Unverified" }: { children?: React.React
   );
 }
 
-export function CompanyAvatar({ name, size = 38, demo = false }: { name: string; size?: number; demo?: boolean }) {
+export function CompanyAvatar({ name, size = 38 }: { name: string; size?: number }) {
   const colors = ["#b8f26a", "#5eead4", "#a78bfa", "#fbbf24", "#fb7185", "#7dd3fc"];
   const index = Array.from(name).reduce((sum, char) => sum + char.charCodeAt(0), 0) % colors.length;
   const initials = name.split(/\s+/).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("");
@@ -177,7 +154,6 @@ export function CompanyAvatar({ name, size = 38, demo = false }: { name: string;
       }}
     >
       {initials}
-      {demo && <span className="sr-only">Demo company</span>}
     </div>
   );
 }

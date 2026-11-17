@@ -14,7 +14,6 @@ const badgeVariants = cva(
         amber: "border-amber-400/25 bg-amber-400/10 text-amber-200",
         violet: "border-violet-400/25 bg-violet-400/10 text-violet-200",
         sky: "border-sky-400/25 bg-sky-400/10 text-sky-200",
-        demo: "border-[#a78bfa]/30 bg-[#a78bfa]/10 font-mono text-[10px] uppercase tracking-wider text-[#c4b5fd]",
       },
     },
     defaultVariants: { variant: "default" },

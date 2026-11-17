@@ -4,11 +4,11 @@
 
 Buying Signal Radar is an open-source GTM engineering project. It turns a plain-language product description into an editable ideal customer profile (ICP), scans permitted public sources for evidence-backed buying signals, ranks companies by fit and timing, and finds the shortest introduction path through the contact graph you already own.
 
-It is deliberately boring where it matters: every claim keeps a source URL, every score exposes its components, and synthetic demo data is always labelled **DEMO**.
+It is deliberately boring where it matters: every claim keeps a source URL and every score exposes its components. There is no demo mode — every row in your workspace came from a live fetch you can click through to.
 
-- **Live-ish in a minute:** run the app locally with Postgres and load the labelled demo dataset.
+- **Real leads in a minute:** confirm an ICP and the app creates live sources, then runs discovery against public feeds and company careers boards.
 - **No black box:** deterministic, rules-based ICP extraction and scoring. No LLM key required.
-- **No shady sourcing:** RSS, public job feeds, company websites, URLs you add, and an optional Tavily/Brave search key. No LinkedIn scraping, login bypass, robots evasion or IP rotation.
+- **No shady sourcing:** RSS, public job feeds and ATS APIs (Greenhouse, Lever, Ashby), company websites, URLs you add, and an optional Tavily/Brave search key. No LinkedIn scraping, login bypass, robots evasion or IP rotation.
 
 ---
 
@@ -27,7 +27,7 @@ It is deliberately boring where it matters: every claim keeps a source URL, ever
 | Route | Purpose |
 | --- | --- |
 | `/` | Landing page and product tour |
-| `/dashboard` | Radar, priority board, volume charts, demo controls |
+| `/dashboard` | Radar, priority board, volume charts, latest evidence |
 | `/discover` | Four-step wizard: describe → review ICP → sources → run |
 | `/companies` | Filterable prospect list with scores and evidence counts |
 | `/companies/[id]` | Full intelligence card, score breakdown, signals, intro paths |
@@ -36,7 +36,7 @@ It is deliberately boring where it matters: every claim keeps a source URL, ever
 | `/sources` | Connector manager, per-source test, availability |
 | `/reports` | Create and revoke sanitised shareable reports |
 | `/r/[token]` | Public, read-only sanitised report |
-| `/settings` | Workspace, scoring weights, privacy and demo controls |
+| `/settings` | Workspace, scoring weights and privacy notes |
 
 ## Tech stack
 
@@ -85,16 +85,19 @@ npm run dev
 
 Open <http://localhost:3000>.
 
-### 5. Load the demo dataset
+### 5. Run your first discovery
 
-On `/dashboard` or `/settings`, click **Load demo data**. A private workspace is created from a cookie (`bsr_workspace`); no account required. Demo companies use fictional `.example` domains and are always badged **DEMO**.
+Open `/discover`, describe what you sell, review the extracted ICP and confirm it. Confirming creates nine live sources — TechCrunch startups, venture and industry-tag feeds, Tech.eu European startups, Crunchbase News, Hacker News funding and launches, Remotive and Jobicy hiring — then runs discovery immediately.
 
-To seed a standalone demo workspace from the CLI (useful for Prisma Studio):
+A private workspace is created from a cookie (`bsr_workspace`); no account required. Everything you then see came from those sources — click any signal to open the original page.
 
-```bash
-npm run db:seed
-npm run db:studio
-```
+### 6. Watch specific accounts
+
+On `/sources`, add a **Company watchlist** source and paste domains you already care about (`linear.app`, `vercel.com`, `ramp.com`). The connector reads each company's public careers page, detects whether they use Greenhouse, Lever or Ashby, and turns their open roles into hiring signals with a direct link to the listing.
+
+### 7. Import your LinkedIn connections
+
+LinkedIn's own export (*Settings → Data privacy → Get a copy of your data*) produces `Connections.csv`. Import it on `/referral` — the parser handles the `Notes:` preamble, combines first/last name, keeps profile URLs and marks the rows as direct connections. No LinkedIn page is ever fetched.
 
 ## Environment variables
 
@@ -104,9 +107,8 @@ npm run db:studio
 | `NEXT_PUBLIC_APP_URL` | No | Public base URL for report links (Vercel sets `VERCEL_URL`) |
 | `TAVILY_API_KEY` | No | Enables the authorised web-search connector |
 | `BRAVE_SEARCH_API_KEY` | No | Alternative web-search provider |
-| `SEED_WORKSPACE_ID` | No | Workspace id used by `npm run db:seed` |
 
-With no search key, the app still works end to end using RSS, public job feeds, company websites and user-supplied URLs. Unavailable connectors are shown as unavailable — never simulated.
+With no search key, the app still works end to end using RSS, public job feeds, ATS boards, company websites and user-supplied URLs. Unavailable connectors are shown as unavailable — never simulated.
 
 ## How scoring works
 
@@ -124,7 +126,7 @@ Five weighted components, normalised so the configured weights always sum to 100
 | Buyer-role relevance | 16 | Evidence mentions a target role, or hiring/leadership activity |
 | Trigger & pain relevance | 20 | Matches selected buying triggers and pain-point language |
 
-Unknown values (no verified headcount, no location) receive neutral partial credit and are labelled **unverified**. Exclusion criteria cap ICP fit at 35.
+Unknown headcount or location receives small neutral credit and is labelled **unverified**. Industry is only credited when it comes from company-level coverage: a job listing is never treated as proof of the employer's industry. Exclusion criteria cap ICP fit at 35; a verified industry outside your targets caps priority at 35, and an unverified industry caps priority at 45, so an unverified company cannot outrank one you can prove fits.
 
 ### Buying signal (0–100)
 
@@ -144,11 +146,12 @@ score  = 100 × (1 − e^(−raw / 22)) + diversityBonus   (capped at 100)
 ### Priority (0–100)
 
 ```
-priority = (icpScore × priorityIcpWeight + signalScore × prioritySignalWeight)
-           / (priorityIcpWeight + prioritySignalWeight)
+fitGate  = 0.35 + 0.65 × icpScore/100
+priority = (icpScore × icpWeight + signalScore × signalWeight × fitGate)
+           / (icpWeight + signalWeight)
 ```
 
-Defaults are 55% ICP and 45% signal. All weights are editable at `/settings`, and **Rescore workspace** recomputes every prospect with a fresh breakdown.
+Defaults are 55% ICP and 45% signal. The `fitGate` discounts signal strength when ICP fit is low, so a generic company with a busy news week cannot bury a company that actually matches your profile. Priority is then capped at 35 for a verified industry mismatch and 45 when industry is unverified. All weights are editable at `/settings`, and **Rescore workspace** recomputes every prospect with a fresh breakdown.
 
 > Scores are decision-support indices. They are not purchase probabilities, and the UI never presents them as such.
 
@@ -187,7 +190,6 @@ See [`docs/connectors.md`](docs/connectors.md) for configuration and extension g
 - Workspaces are isolated by a signed-in-cookie pattern; there is no login in the MVP.
 - Public report tokens are random, rotatable and revocable.
 - Sanitised reports exclude contacts, notes, relationship data and workspace settings.
-- Demo data is clearly separated from live data via a `dataMode` field on companies and signals.
 
 > **MVP caveat:** the cookie workspace is a convenience boundary, not authentication. Do not put sensitive contact data in a public deployment until you add real auth and per-user workspaces.
 
@@ -208,8 +210,7 @@ src/
     shell/               sidebar, mobile bar, page header
     ui/                  vendored shadcn-style primitives
   lib/
-    connectors/          RSS, HN, job feeds, page parsing, web search, classification, extraction
-    demo/                demo seeding and reset
+    connectors/          RSS, HN, job feeds, ATS detection, page parsing, web search, classification
     discovery/           pipeline: run sources → extract → dedupe → score
     graph/               BFS shortest paths and intro-request drafts
     icp/                 taxonomy and rules-based interpreter
@@ -217,10 +218,8 @@ src/
     http/                SSRF- and robots-aware fetching
 prisma/
   schema.prisma          data model
-  seed.ts                standalone demo seed for local inspection
 data/
-  demo/dataset.json      synthetic, fictional demo dataset
-  samples/               contacts CSV example
+  samples/               contacts and LinkedIn-import CSV examples
 tests/                   scoring, ingestion/classification, graph paths
 docs/                    architecture and connector guides
 ```
@@ -236,7 +235,6 @@ docs/                    architecture and connector guides
 | `npm test` | Run Vitest suites |
 | `npm run db:push` | Push the Prisma schema |
 | `npm run db:studio` | Open Prisma Studio |
-| `npm run db:seed` | Seed a standalone demo workspace |
 | `npm run lint` | ESLint with Next.js core-web-vitals rules |
 
 ## Deployment
@@ -247,7 +245,7 @@ docs/                    architecture and connector guides
 2. From your machine, point `DATABASE_URL` at it and run `npx prisma db push`.
 3. Import the repo in Vercel and set `DATABASE_URL` (plus optional search keys) in Project Settings → Environment Variables.
 4. Deploy. `npm run build` runs `prisma generate` automatically.
-5. Load demo data from `/settings`, or configure live sources at `/sources`.
+5. Describe your product on `/discover`; sources and discovery are created for you, and you can tune them on `/sources`.
 
 For production, prefer migrations (`prisma migrate dev` → commit `prisma/migrations`) over `db push`, and add authentication before storing real contact data.
 

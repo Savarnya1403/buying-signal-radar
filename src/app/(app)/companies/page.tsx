@@ -15,15 +15,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   CompanyAvatar,
-  DataModeBadge,
-  DemoBanner,
   EmptyState,
   SignalBadge,
   Unverified,
 } from "@/components/shared/display";
 import { CompanyFilters } from "@/components/companies/company-filters";
 import { ProspectQuickActions } from "@/components/companies/prospect-quick-actions";
-import { DemoLoader } from "@/components/demo/demo-loader";
 import { ensureWorkspace } from "@/lib/workspace";
 import { prisma } from "@/lib/db";
 import { SIGNAL_META, SIGNAL_TYPES } from "@/lib/signals";
@@ -57,16 +54,13 @@ export default async function CompaniesPage({ searchParams }: { searchParams: Se
   if (!icp) {
     return (
       <div>
-        <PageHeader eyebrow="Companies" title="Ranked companies appear here." description="Confirm an ICP and run discovery, or load the labelled demo workspace to explore the full flow." />
+        <PageHeader eyebrow="Companies" title="Ranked companies appear here." description="Confirm an ICP and run discovery to rank companies against your market." />
         <EmptyState
           icon={<Radar className="h-5 w-5" />}
           title="No ICP yet"
           description="Buying Signal Radar needs to know what you sell before it can rank companies. Describe your product in plain English — it takes about a minute."
           actions={
-            <>
-              <Button asChild><Link href="/discover"><Radar /> Describe your product</Link></Button>
-              <DemoLoader variant="outline" />
-            </>
+            <Button asChild><Link href="/discover"><Radar /> Describe your product</Link></Button>
           }
         />
       </div>
@@ -107,7 +101,7 @@ export default async function CompaniesPage({ searchParams }: { searchParams: Se
     sort === "name" ? [{ company: { name: "asc" } }] :
     [{ priorityScore: "desc" }, { signalScore: "desc" }];
 
-  const [prospects, totalActive, demoSources, industriesRaw] = await Promise.all([
+  const [prospects, totalActive, industriesRaw] = await Promise.all([
     prisma.prospect.findMany({
       where,
       include: {
@@ -121,7 +115,6 @@ export default async function CompaniesPage({ searchParams }: { searchParams: Se
       take: 150,
     }),
     prisma.prospect.count({ where: { workspaceId: workspace.id, icpProfileId: icp.id, status: { not: "DISQUALIFIED" } } }),
-    prisma.signal.count({ where: { workspaceId: workspace.id, dataMode: "DEMO" } }),
     prisma.company.findMany({
       where: { workspaceId: workspace.id, industry: { not: null } },
       select: { industry: true },
@@ -130,8 +123,6 @@ export default async function CompaniesPage({ searchParams }: { searchParams: Se
     }),
   ]);
 
-  const totalSignals = await prisma.signal.count({ where: { workspaceId: workspace.id } });
-  const allDemo = totalSignals > 0 && demoSources === totalSignals;
   const industries = industriesRaw
     .map((row) => row.industry)
     .filter((value): value is string => Boolean(value))
@@ -155,8 +146,6 @@ export default async function CompaniesPage({ searchParams }: { searchParams: Se
         }
       />
 
-      {allDemo && <div className="mb-4"><DemoBanner compact /></div>}
-
       <CompanyFilters
         total={prospects.length}
         industries={industries}
@@ -170,15 +159,12 @@ export default async function CompaniesPage({ searchParams }: { searchParams: Se
             title={totalActive === 0 ? "No prospects ranked yet" : "No companies match these filters"}
             description={
               totalActive === 0
-                ? "Run discovery against the permitted public sources you selected, or load the demo workspace to see how ranking and evidence work."
+                ? "Run discovery against the permitted public sources you selected to see how ranking and evidence work."
                 : "Try a broader search, clear the signal filter, or include disqualified prospects. Filters never change the underlying scores."
             }
             actions={
               totalActive === 0 ? (
-                <>
-                  <Button asChild><Link href="/discover"><Radar /> Run discovery</Link></Button>
-                  <DemoLoader variant="outline" />
-                </>
+                <Button asChild><Link href="/discover"><Radar /> Run discovery</Link></Button>
               ) : (
                 <Button asChild variant="outline"><Link href="/companies">Clear filters</Link></Button>
               )
@@ -209,11 +195,11 @@ export default async function CompaniesPage({ searchParams }: { searchParams: Se
                   <Link href={`/companies/${company.id}`} className="absolute inset-0 z-0" aria-label={`Open ${company.name}`} />
 
                   <div className="relative z-10 flex min-w-0 items-start gap-3">
-                    <CompanyAvatar name={company.name} demo={company.isDemo} />
+                    <CompanyAvatar name={company.name} />
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-1.5">
                         <p className="truncate text-[13px] font-medium text-foreground">{company.name}</p>
-                        {company.isDemo ? <Badge variant="demo">Demo</Badge> : <Badge variant="outline" className="font-mono text-[9px]">LIVE</Badge>}
+                        <Badge variant="outline" className="font-mono text-[9px]">LIVE</Badge>
                         {prospect.status !== "NEW" && (
                           <Badge variant={prospect.status === "DISQUALIFIED" ? "destructive" : prospect.status === "SAVED" ? "primary" : "sky"} className="font-mono text-[9px]">
                             {STATUS_LABEL[prospect.status]}
@@ -296,7 +282,6 @@ export default async function CompaniesPage({ searchParams }: { searchParams: Se
               Showing {prospects.length}{prospects.length === 150 ? "+" : ""} of {totalActive} active prospects. Scores re-compute when signals or weights change.
             </p>
             <div className="flex items-center gap-3">
-              <DataModeBadge demo={allDemo} />
               <Button asChild variant="ghost" size="sm" className="h-7 text-[11px]">
                 <Link href="/settings">Tune scoring <ArrowRight className="h-3 w-3" /></Link>
               </Button>

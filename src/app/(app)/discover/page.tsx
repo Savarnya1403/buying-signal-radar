@@ -1,6 +1,5 @@
 import { PageHeader } from "@/components/shell/page-header";
 import { DiscoverWizard } from "@/components/discovery/discover-wizard";
-import { DemoLoader } from "@/components/demo/demo-loader";
 import { ensureWorkspace } from "@/lib/workspace";
 import { prisma } from "@/lib/db";
 
@@ -8,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 export default async function DiscoverPage() {
   const workspace = await ensureWorkspace();
-  const [icp, sources, demoSignals] = await Promise.all([
+  const [icp, sources] = await Promise.all([
     prisma.icpProfile.findFirst({
       where: { workspaceId: workspace.id, isConfirmed: true },
       orderBy: { createdAt: "desc" },
@@ -18,7 +17,6 @@ export default async function DiscoverPage() {
       orderBy: { createdAt: "asc" },
       select: { id: true, name: true, type: true, enabled: true, lastStatus: true },
     }),
-    prisma.signal.count({ where: { workspaceId: workspace.id, dataMode: "DEMO" } }),
   ]);
 
   return (
@@ -31,7 +29,6 @@ export default async function DiscoverPage() {
             ? "Every field is editable and evidence-backed. Confirming creates a new ICP version and re-ranks your existing prospects — it never silently overwrites the last one."
             : "Plain English in, structured ICP out. Review the reading, edit anything, choose your signals and period, then run discovery across RSS, public job feeds, Show HN, company pages and URLs you add."
         }
-        actions={<DemoLoader variant="outline" size="sm" />}
       />
 
       <DiscoverWizard
@@ -51,10 +48,8 @@ export default async function DiscoverPage() {
           discoveryPeriodDays: icp.discoveryPeriodDays,
           confidence: icp.confidence,
           rationale: icp.rationale,
-          isDemo: icp.isDemo,
         } : null}
         sources={sources}
-        demoSignals={demoSignals}
       />
     </div>
   );

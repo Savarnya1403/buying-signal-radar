@@ -5,7 +5,6 @@ import {
   Bookmark,
   Building2,
   CircleDot,
-  FlaskConical,
   Network,
   Radar,
   Rss,
@@ -18,15 +17,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   CompanyAvatar,
-  DataModeBadge,
-  DemoBanner,
   MetricCard,
   ScoreBar,
   SignalBadge,
 } from "@/components/shared/display";
 import { SignalRadar, type RadarSignal } from "@/components/dashboard/signal-radar";
 import { SignalVolumeChart, type VolumePoint } from "@/components/dashboard/charts";
-import { DemoLoader } from "@/components/demo/demo-loader";
 import { QuickRunButton } from "@/components/discovery/quick-run-button";
 import { ensureWorkspace } from "@/lib/workspace";
 import { prisma } from "@/lib/db";
@@ -49,7 +45,7 @@ export default async function DashboardPage() {
 
   if (!icp) return <NoIcpDashboard />;
 
-  const [prospects, prospectsCount, highPriority, signals7d, sources, contacts, demoSignals, totalSignals, recentSignals] =
+  const [prospects, prospectsCount, highPriority, signals7d, sources, contacts, totalSignals, recentSignals] =
     await Promise.all([
       prisma.prospect.findMany({
         where: { workspaceId: workspace.id, icpProfileId: icp.id, status: { not: "DISQUALIFIED" } },
@@ -73,17 +69,15 @@ export default async function DashboardPage() {
         select: { id: true, name: true, lastStatus: true, lastRunAt: true },
       }),
       prisma.contact.count({ where: { workspaceId: workspace.id } }),
-      prisma.signal.count({ where: { workspaceId: workspace.id, dataMode: "DEMO" } }),
       prisma.signal.count({ where: { workspaceId: workspace.id } }),
       prisma.signal.findMany({
         where: { workspaceId: workspace.id },
-        include: { company: { select: { id: true, name: true, isDemo: true } } },
+        include: { company: { select: { id: true, name: true } } },
         orderBy: [{ publishedAt: "desc" }, { discoveredAt: "desc" }],
         take: 80,
       }),
     ]);
 
-  const allDemo = totalSignals > 0 && demoSignals === totalSignals;
   const healthySources = sources.filter((source) => source.lastStatus !== "FAILED").length;
 
   const radarSignals: RadarSignal[] = recentSignals.slice(0, 32).map((signal) => ({
@@ -94,7 +88,6 @@ export default async function DashboardPage() {
     title: signal.title,
     daysAgo: daysAgo(signal.publishedAt ?? signal.discoveredAt),
     confidence: signal.confidence,
-    demo: signal.dataMode === "DEMO",
   }));
 
   const volume: VolumePoint[] = Array.from({ length: 14 }).map((_, index) => {
@@ -108,8 +101,7 @@ export default async function DashboardPage() {
     });
     return {
       day: start.toLocaleDateString("en-GB", { day: "2-digit", month: "short" }),
-      live: inDay.filter((signal) => signal.dataMode === "LIVE").length,
-      demo: inDay.filter((signal) => signal.dataMode === "DEMO").length,
+      live: inDay.length,
     };
   });
 
@@ -144,8 +136,6 @@ export default async function DashboardPage() {
         }
       />
 
-      {allDemo && <div className="mb-5"><DemoBanner /></div>}
-
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <MetricCard
           label="Ranked prospects"
@@ -173,14 +163,14 @@ export default async function DashboardPage() {
         <MetricCard
           label="Sources"
           value={sources.length > 0 ? `${healthySources}/${sources.length}` : "None"}
-          detail={sources.length > 0 ? "Enabled connectors responding" : "Demo data — add a source for live scans"}
+          detail={sources.length > 0 ? "Enabled connectors responding" : "Add a source to run live scans"}
           icon={<Rss className="h-4 w-4" />}
           href="/sources"
         />
       </div>
 
       <div className="mt-4 grid gap-4 xl:grid-cols-[1.08fr_0.92fr]">
-        <SignalRadar signals={radarSignals} demo={allDemo} />
+        <SignalRadar signals={radarSignals} />
 
         <div className="panel flex flex-col">
           <div className="flex items-center justify-between border-b border-white/[0.06] px-5 py-4">
@@ -206,7 +196,6 @@ export default async function DashboardPage() {
                     <div className="flex items-center gap-2">
                       <p className="truncate text-[12px] font-medium text-foreground/90">{signal.company.name}</p>
                       <span className="shrink-0 font-mono text-[9px] uppercase tracking-wider text-muted-foreground/45">{meta.shortLabel}</span>
-                      {signal.dataMode === "DEMO" && <span className="font-mono text-[8px] text-[#c4b5fd]">DEMO</span>}
                     </div>
                     <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-muted-foreground/65">
                       {truncate(signal.title, 120)}
@@ -221,7 +210,7 @@ export default async function DashboardPage() {
             })}
             {recentSignals.length === 0 && (
               <div className="px-5 py-10 text-center text-[12px] text-muted-foreground/60">
-                No signals yet. Add a source or load the demo dataset.
+                No signals yet. Add a source and run discovery.
               </div>
             )}
           </div>
@@ -248,12 +237,11 @@ export default async function DashboardPage() {
               >
                 <div className="flex items-center gap-3">
                   <span className="w-4 font-mono text-[10px] text-muted-foreground/35">{String(index + 1).padStart(2, "0")}</span>
-                  <CompanyAvatar name={prospect.company.name} demo={prospect.company.isDemo} />
+                  <CompanyAvatar name={prospect.company.name} />
                 </div>
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-1.5">
                     <p className="text-[13px] font-medium text-foreground">{prospect.company.name}</p>
-                    {prospect.company.isDemo && <Badge variant="demo">Demo</Badge>}
                     {prospect.company.industry && <span className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground/45">{prospect.company.industry}</span>}
                   </div>
                   <div className="mt-1 flex flex-wrap items-center gap-1.5">
@@ -281,7 +269,6 @@ export default async function DashboardPage() {
                 <p className="text-[13px] text-muted-foreground">No prospects ranked yet.</p>
                 <div className="mt-3 flex justify-center gap-2">
                   <Button asChild size="sm"><Link href="/discover">Run discovery</Link></Button>
-                  <DemoLoader size="sm" variant="outline" />
                 </div>
               </div>
             )}
@@ -326,10 +313,7 @@ export default async function DashboardPage() {
           </div>
 
           <div className="panel p-5">
-            <div className="flex items-center justify-between">
-              <p className="label-mono">Signal volume · 14d</p>
-              <DataModeBadge demo={allDemo} />
-            </div>
+            <p className="label-mono">Signal volume · 14d</p>
             <div className="mt-2">
               <SignalVolumeChart data={volume} />
             </div>
@@ -380,7 +364,6 @@ function NoIcpDashboard() {
         eyebrow="Buying Signal Radar"
         title={<>Tell us what you sell. We&apos;ll find who might need it — <span className="text-gradient">and why now.</span></>}
         description="Describe your product in plain English. We extract an editable ICP, scan permitted public sources for buying signals, rank companies and map warm introduction paths. No fabricated data."
-        actions={<DemoLoader variant="outline" size="sm" />}
       />
 
       <div className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
@@ -411,11 +394,7 @@ function NoIcpDashboard() {
           </div>
           <div className="mt-6 flex flex-wrap items-center gap-2">
             <Button asChild size="lg"><Link href="/discover"><Sparkles /> Describe your product</Link></Button>
-            <DemoLoader variant="outline" size="lg" />
           </div>
-          <p className="mt-3 text-[10px] text-muted-foreground/45">
-            Demo mode uses fictional companies and is always labelled. Live mode only shows signals extracted from public sources.
-          </p>
         </div>
 
         <div className="space-y-4">
@@ -460,11 +439,6 @@ function NoIcpDashboard() {
                 The radar places recent signals by category and recency. Every blip opens evidence, source and publication date.
               </p>
             </div>
-          </div>
-
-          <div className="flex items-center gap-2 rounded-lg border border-white/[0.055] bg-white/[0.015] px-4 py-3 text-[10px] leading-relaxed text-muted-foreground/55">
-            <FlaskConical className="h-3.5 w-3.5 shrink-0 text-[#c4b5fd]" />
-            No external API key? Demo mode is fully labelled and never presented as live.
           </div>
         </div>
       </div>
