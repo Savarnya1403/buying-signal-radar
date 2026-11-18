@@ -24,6 +24,7 @@ import {
 import { SignalRadar, type RadarSignal } from "@/components/dashboard/signal-radar";
 import { SignalVolumeChart, type VolumePoint } from "@/components/dashboard/charts";
 import { QuickRunButton } from "@/components/discovery/quick-run-button";
+import { QuickScan } from "@/components/discovery/quick-scan";
 import { ensureWorkspace } from "@/lib/workspace";
 import { prisma } from "@/lib/db";
 import { signalMeta } from "@/lib/signals";
@@ -374,13 +375,14 @@ function NoIcpDashboard() {
             What do you sell, who is it for, and what makes a company ready to buy?
           </h2>
           <p className="mt-2 max-w-xl text-[13px] leading-relaxed text-muted-foreground">
-            We turn that into a structured ICP — category, industries, size, geography, buyer roles, pains, triggers and exclusions — then show you exactly how it was read before any discovery runs.
+            Describe your product once. We infer the ICP, save it, scan the right market and rank companies — no repeated form filling.
           </p>
+          <QuickScan sample={SAMPLE_PRODUCT_DESCRIPTIONS[0].text} />
           <div className="mt-6 space-y-3">
             {[
               { step: "01", title: "Describe your product", detail: "Plain English. No forms, no firmographic guessing." },
-              { step: "02", title: "Confirm the ICP", detail: "Edit every field and see the evidence behind it." },
-              { step: "03", title: "Scan permitted sources", detail: "RSS, public job feeds, Show HN, company pages and your own URLs." },
+              { step: "02", title: "Review only if you want", detail: "The ICP is saved automatically and every field stays editable." },
+              { step: "03", title: "Scan the right market", detail: "India, the US or Europe — sources follow the geography you name." },
               { step: "04", title: "Rank, verify, introduce", detail: "Separate fit and intent scores, traceable evidence, referral paths." },
             ].map((item) => (
               <div key={item.step} className="flex items-start gap-3 rounded-lg border border-white/[0.055] bg-white/[0.018] p-3">

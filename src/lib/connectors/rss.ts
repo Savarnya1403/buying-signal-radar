@@ -1,13 +1,19 @@
 import { z } from "zod";
 import Parser from "rss-parser";
 import { safeFetch } from "@/lib/http/safe-fetch";
-import { extractCompanyFromHeadline, cleanSourceName, stripHtml, truncateEvidence } from "./extraction";
+import { extractCompanyFromHeadline, cleanSourceName, inferCompanyLocation, stripHtml, truncateEvidence } from "./extraction";
 import type { ConnectorResult, RawDocument, SourceConnector } from "./types";
 
 export const rssConfigSchema = z.object({
   feedUrl: z.string().url().max(2000),
   companyHint: z.string().trim().max(160).optional(),
   companyDomain: z.string().trim().max(255).optional(),
+  /**
+   * Fallback geography for a publication that only covers one market (for
+   * example an India-only startup publication). It is used only when the
+   * article itself does not name a city or country.
+   */
+  region: z.string().trim().max(80).optional(),
   maxItems: z.number().int().min(1).max(50).optional(),
 });
 
@@ -58,6 +64,10 @@ export function parseRssItems(
       continue;
     }
 
+    // Prefer a location named in the article. A single-market publication is a
+    // fair fallback because every company it covers is part of that market.
+    const location = inferCompanyLocation(`${title} ${summary}`)?.location ?? config.region ?? null;
+
     documents.push({
       title,
       url,
@@ -71,9 +81,10 @@ export function parseRssItems(
         confidence,
         domain: config.companyDomain ?? null,
         website: config.companyDomain ? `https://${config.companyDomain.replace(/^https?:\/\//, "")}` : null,
+        location,
       },
       tags: item.categories ?? [],
-      metadata: { feedUrl: config.feedUrl, feedLink: feed.link, extractionPattern: pattern },
+      metadata: { feedUrl: config.feedUrl, feedLink: feed.link, extractionPattern: pattern, region: config.region ?? null },
     });
   }
 

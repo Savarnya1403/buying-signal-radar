@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db";
 import { apiError, apiOk, assertSameOrigin, parseJson, withWorkspace } from "@/lib/api";
 import type { Prisma } from "@prisma/client";
 import { SIGNAL_TYPES } from "@/lib/signals";
-import { buildDefaultSources } from "@/lib/connectors";
+import { buildDefaultSources, isManagedDefaultSourceName } from "@/lib/connectors";
 import { rescoreWorkspace } from "@/lib/scoring/service";
 
 const schema = z.object({
@@ -70,29 +70,59 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    const existingSources = await prisma.source.count({ where: { workspaceId: workspace.id } });
-    let sourcesCreated = 0;
-    if (existingSources === 0) {
-      const defaults = buildDefaultSources({
-        productCategory: icp.productCategory,
-        targetIndustries: icp.targetIndustries,
-        buyerRoles: icp.buyerRoles,
-        geographies: icp.geographies,
-        selectedSignalTypes: icp.selectedSignalTypes,
+    // Defaults are refreshed on every confirmation, not only for brand-new
+    // workspaces. Otherwise switching an ICP to India never adds Indian sources.
+    const defaults = buildDefaultSources({
+      productCategory: icp.productCategory,
+      targetIndustries: icp.targetIndustries,
+      buyerRoles: icp.buyerRoles,
+      geographies: icp.geographies,
+      selectedSignalTypes: icp.selectedSignalTypes,
+    });
+    const existingSources = await prisma.source.findMany({
+      where: { workspaceId: workspace.id },
+      select: { id: true, name: true },
+    });
+    const existingByName = new Map(existingSources.map((source) => [source.name, source.id]));
+    const missing = defaults.filter((source) => !existingByName.has(source.name));
+
+    if (missing.length > 0) {
+      await prisma.source.createMany({
+        data: missing.map((source) => ({
+          workspaceId: workspace.id,
+          type: source.type,
+          name: source.name,
+          url: source.url,
+          config: source.config as Prisma.InputJsonValue,
+        })),
       });
-      for (const source of defaults) {
-        await prisma.source.create({
-          data: {
-            workspaceId: workspace.id,
-            type: source.type,
-            name: source.name,
-            url: source.url,
-            config: source.config as Prisma.InputJsonValue,
-          },
-        });
-        sourcesCreated += 1;
-      }
     }
+
+    // Managed defaults keep their config in step with the current ICP (industry
+    // tag, hiring watchlist) without touching sources the user added.
+    await Promise.all(
+      defaults
+        .filter((source) => existingByName.has(source.name))
+        .map((source) =>
+          prisma.source.update({
+            where: { id: existingByName.get(source.name) as string },
+            data: { url: source.url, config: source.config as Prisma.InputJsonValue },
+          }),
+        ),
+    );
+
+    // Disable managed defaults that no longer fit the selected geography or
+    // industry. They stay in the workspace so the user can re-enable them.
+    const keep = new Set(defaults.map((source) => source.name));
+    const stale = existingSources.filter((source) => isManagedDefaultSourceName(source.name) && !keep.has(source.name));
+    if (stale.length > 0) {
+      await prisma.source.updateMany({
+        where: { id: { in: stale.map((source) => source.id) } },
+        data: { enabled: false },
+      });
+    }
+
+    const sourcesCreated = missing.length;
 
     const scoring = await rescoreWorkspace(workspace.id, icp.id);
     return apiOk({ icp, sourcesCreated, prospectsScored: scoring.scored }, 201);

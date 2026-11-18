@@ -45,9 +45,16 @@ const ashbySchema = z.object({
   companyDomain: z.string().trim().max(255).optional(),
   maxItems: z.number().int().min(1).max(30).default(12),
 });
+const autoCompanySchema = z.object({
+  domain: z.string().trim().min(3).max(255),
+  companyName: z.string().trim().min(1).max(160).optional(),
+  provider: z.enum(["greenhouse", "lever", "ashby"]).optional(),
+  boardToken: z.string().trim().min(1).max(80).optional(),
+});
 const autoSchema = z.object({
   provider: z.literal("auto"),
-  domains: z.array(z.string().trim().min(3).max(255)).min(1).max(8),
+  domains: z.array(z.string().trim().min(3).max(255)).max(8).optional(),
+  entries: z.array(autoCompanySchema).min(1).max(12).optional(),
   maxItems: z.number().int().min(1).max(40).default(10),
 });
 
@@ -99,12 +106,13 @@ export function parseRemotiveJobs(jobs: RemotiveJob[], maxItems: number): RawDoc
       company: {
         name: normalizeCompanyName(job.company_name),
         confidence: 0.95,
-        location: job.candidate_required_location ?? null,
+        // A candidate location is not the employer's headquarters. The pipeline
+        // fills HQ from the company directory when it knows the domain.
         description: stripHtml(job.description ?? "").slice(0, 800),
       },
       signalHints: ["HIRING"],
       tags: job.tags ?? [],
-      metadata: { provider: "remotive", jobId: job.id, jobTitle: job.title, category: job.category },
+      metadata: { provider: "remotive", jobId: job.id, jobTitle: job.title, category: job.category, jobLocation: job.candidate_required_location ?? null },
     } satisfies RawDocument];
   });
 }
@@ -142,12 +150,11 @@ export function parseJobicyJobs(jobs: JobicyJob[], maxItems: number): RawDocumen
       company: {
         name: normalizeCompanyName(job.companyName),
         confidence: 0.94,
-        location: job.jobGeo ?? null,
         description: truncateEvidence(job.jobExcerpt ?? "", 800),
       },
       signalHints: ["HIRING"],
       tags: job.jobIndustry ?? [],
-      metadata: { provider: "jobicy", jobId: job.id, jobTitle: job.jobTitle, level: job.jobLevel },
+      metadata: { provider: "jobicy", jobId: job.id, jobTitle: job.jobTitle, level: job.jobLevel, jobLocation: job.jobGeo ?? null },
     } satisfies RawDocument];
   });
 }
@@ -181,10 +188,9 @@ export function parseGreenhouseJobs(
         confidence: 1,
         domain: config.companyDomain ?? null,
         website: config.companyDomain ? `https://${config.companyDomain.replace(/^https?:\/\//, "")}` : null,
-        location: job.location?.name ?? null,
       },
       signalHints: ["HIRING"],
-      metadata: { provider: "greenhouse", jobId: job.id, jobTitle: job.title },
+      metadata: { provider: "greenhouse", jobId: job.id, jobTitle: job.title, jobLocation: job.location?.name ?? null },
     } satisfies RawDocument];
   });
 }
@@ -219,10 +225,9 @@ export function parseLeverJobs(
         confidence: 1,
         domain: config.companyDomain ?? null,
         website: config.companyDomain ? `https://${config.companyDomain.replace(/^https?:\/\//, "")}` : null,
-        location: job.categories?.location ?? null,
       },
       signalHints: ["HIRING"],
-      metadata: { provider: "lever", jobId: job.id, jobTitle: job.text },
+      metadata: { provider: "lever", jobId: job.id, jobTitle: job.text, jobLocation: job.categories?.location ?? null },
     } satisfies RawDocument];
   });
 }
@@ -267,11 +272,10 @@ export function parseAshbyJobs(
           confidence: 1,
           domain: config.companyDomain ?? null,
           website: config.companyDomain ? `https://${config.companyDomain.replace(/^https?:\/\//, "")}` : null,
-          location: job.location ?? null,
         },
         signalHints: ["HIRING"],
         tags: job.department ? [job.department] : [],
-        metadata: { provider: "ashby", jobId: job.id, jobTitle: job.title, remote: job.isRemote ?? false },
+        metadata: { provider: "ashby", jobId: job.id, jobTitle: job.title, remote: job.isRemote ?? false, jobLocation: job.location ?? null },
       } satisfies RawDocument];
     });
 }
@@ -360,16 +364,34 @@ export const jobFeedConnector: SourceConnector<JobFeedConfig> = {
       const documents: RawDocument[] = [];
       const warnings: string[] = [];
       const seenBoards = new Set<string>();
-      const perCompany = Math.max(3, Math.ceil(config.maxItems / Math.min(config.domains.length, 4)));
+      const requested = [
+        ...(config.entries ?? []),
+        ...(config.domains ?? []).map((domain) => ({ domain })),
+      ];
+      const perCompany = Math.max(3, Math.ceil(config.maxItems / Math.min(requested.length, 4)));
 
       const resolved = await Promise.all(
-        config.domains.map(async (input) => {
-          const domain = normalizeDomain(input);
-          if (!domain) return { input, domain: null, board: null as AtsBoard | null };
+        requested.map(async (input) => {
+          const domain = normalizeDomain(input.domain);
+          if (!domain) return { input: input.domain, domain: null, board: null as AtsBoard | null };
+          // A directory entry with a known ATS token skips the careers-page probe,
+          // which keeps India watchlists inside the discovery time budget.
+          if ("provider" in input && input.provider && "boardToken" in input && input.boardToken) {
+            return {
+              input: domain,
+              domain,
+              board: {
+                provider: input.provider,
+                token: input.boardToken,
+                companyName: "companyName" in input ? input.companyName ?? null : null,
+                discoveredFrom: "verified company directory",
+              } as AtsBoard,
+            };
+          }
           try {
-            return { input, domain, board: await detectAts(domain) };
+            return { input: domain, domain, board: await detectAts(domain) };
           } catch {
-            return { input, domain, board: null as AtsBoard | null };
+            return { input: domain, domain, board: null as AtsBoard | null };
           }
         }),
       );

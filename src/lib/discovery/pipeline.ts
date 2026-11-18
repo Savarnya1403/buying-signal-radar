@@ -3,7 +3,8 @@ import { createHash, randomUUID } from "node:crypto";
 import type { Prisma, SignalType, SourceType } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { classifySignal } from "@/lib/connectors/classify";
-import { canonicalizeUrl, companyKey, inferIndustry, normalizeCompanyName, truncateEvidence } from "@/lib/connectors/extraction";
+import { canonicalizeUrl, companyKey, inferCompanyLocation, inferIndustry, locationMatchesGeographies, normalizeCompanyName, truncateEvidence } from "@/lib/connectors/extraction";
+import { directoryCompanyFor, type DirectoryCompany } from "@/lib/connectors/company-directory";
 import { runConnector } from "@/lib/connectors";
 import { rescoreWorkspace } from "@/lib/scoring/service";
 import type { ConnectorIcp, RawDocument } from "@/lib/connectors/types";
@@ -67,6 +68,28 @@ type CompanyIndexEntry = {
   description: string | null;
 };
 
+/**
+ * A document is only worth ingesting when we can tie the company to a target
+ * geography. Unknown locations are rejected rather than given the benefit of the
+ * doubt: that is exactly how unrelated US companies used to leak into an India
+ * search. "Remote / global" disables the filter.
+ */
+function documentFitsGeography(icp: ConnectorIcp, location: string | null): boolean {
+  const targets = icp.geographies.filter((geography) => geography && geography !== "Remote / global");
+  if (targets.length === 0) return true;
+  if (icp.geographies.includes("Remote / global")) return true;
+  return locationMatchesGeographies(location, targets);
+}
+
+function companyLocationFor(document: RawDocument, directory: DirectoryCompany | null): string | null {
+  if (directory) return directory.location;
+  if (document.company.location) return document.company.location;
+  // Job feeds never contribute an HQ: the listing's location is where the hire
+  // would sit, not where the employer is based.
+  if (document.sourceType === "JOB_FEED") return null;
+  return inferCompanyLocation(`${document.title} ${document.summary}`)?.location ?? null;
+}
+
 type CompanyIndex = {
   byName: Map<string, CompanyIndexEntry>;
   byDomain: Map<string, CompanyIndexEntry>;
@@ -124,15 +147,26 @@ function resolveCompany(
   const normalizedName = companyKey(name);
   if (!name || normalizedName.length < 2) return null;
 
-  const domain = cleanDomain(document.company.domain);
+  const rawDomain = cleanDomain(document.company.domain);
+  const directory = directoryCompanyFor({ domain: rawDomain, name });
+  const domain = directory?.domain ?? rawDomain;
   const website = document.company.website ?? (domain ? `https://${domain}` : null);
-  // Job listings describe the role, not the employer's industry.
+  // Job listings describe the role, not the employer's industry. A directory
+  // match is company-level knowledge, so it is the only industry evidence a
+  // job feed can contribute.
   const inferred =
-    document.sourceType === "JOB_FEED"
+    document.sourceType === "JOB_FEED" || directory
       ? { industry: null, confidence: 0 }
       : inferIndustry(`${document.title} ${document.summary}`, icp.targetIndustries);
-  const industry = document.company.industry ?? inferred.industry;
-  const industryConfidence = industry ? (document.company.industry ? 0.7 : inferred.confidence) : null;
+  const industry = directory?.industry ?? document.company.industry ?? inferred.industry;
+  const industryConfidence = industry
+    ? directory
+      ? 0.85
+      : document.company.industry
+        ? 0.7
+        : inferred.confidence
+    : null;
+  const location = companyLocationFor(document, directory);
   const employeeCount =
     document.company.employeeCount && document.company.employeeCount > 0 ? document.company.employeeCount : null;
   const description = document.company.description ? truncateEvidence(document.company.description, 1000) : null;
@@ -150,14 +184,23 @@ function resolveCompany(
       existing.domain = domain;
       index.byDomain.set(domain, existing);
     }
-    if (!existing.industry && industry) {
+    // Directory values are authoritative and correct stale values written by the
+    // old job-location-as-HQ and unverified-industry behaviour.
+    if (directory && existing.industry !== directory.industry) {
+      update.industry = directory.industry;
+      update.industryConfidence = 0.85;
+      existing.industry = directory.industry;
+    } else if (!existing.industry && industry) {
       update.industry = industry;
       update.industryConfidence = industryConfidence;
       existing.industry = industry;
     }
-    if (!existing.location && document.company.location) {
-      update.location = document.company.location;
-      existing.location = document.company.location;
+    if (directory && existing.location !== directory.location) {
+      update.location = directory.location;
+      existing.location = directory.location;
+    } else if (!existing.location && location) {
+      update.location = location;
+      existing.location = location;
     }
     if (!existing.employeeCount && employeeCount) {
       update.employeeCount = employeeCount;
@@ -183,7 +226,7 @@ function resolveCompany(
     website,
     industry,
     industryConfidence,
-    location: document.company.location ?? null,
+    location,
     employeeCount,
     employeeRange: employeeCount ? `${employeeCount.toLocaleString()} employees` : null,
     sizeSource: employeeCount ? "Self-reported on a public page" : null,
@@ -196,7 +239,7 @@ function resolveCompany(
     domain,
     website,
     industry,
-    location: document.company.location ?? null,
+    location,
     employeeCount,
     description,
   };
@@ -292,6 +335,7 @@ export async function runDiscovery(options: {
     });
 
     const signalRows: Prisma.SignalCreateManyInput[] = [];
+    let geoExcluded = 0;
 
     const summary: SourceRunSummary = {
       sourceId: source.id,
@@ -324,6 +368,13 @@ export async function runDiscovery(options: {
           continue;
         }
         if (document.publishedAt && document.publishedAt.getTime() > now.getTime() + 86_400_000) {
+          continue;
+        }
+
+        const directory = directoryCompanyFor({ domain: document.company.domain, name: document.company.name });
+        const location = companyLocationFor(document, directory);
+        if (!documentFitsGeography(connectorIcp, location)) {
+          geoExcluded += 1;
           continue;
         }
 
@@ -385,6 +436,12 @@ export async function runDiscovery(options: {
         }
 
         if (keptOne) summary.kept += 1;
+      }
+
+      if (geoExcluded > 0) {
+        summary.warnings.push(
+          `${geoExcluded} document${geoExcluded === 1 ? "" : "s"} skipped — the company's location is outside ${connectorIcp.geographies.filter((geography) => geography !== "Remote / global").join(", ")} or could not be verified.`,
+        );
       }
 
       summary.status = summary.signalsCreated > 0 ? "SUCCESS" : "PARTIAL";

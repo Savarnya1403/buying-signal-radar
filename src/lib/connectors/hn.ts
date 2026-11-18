@@ -7,6 +7,12 @@ export const hnConfigSchema = z.object({
   query: z.string().trim().max(200).default(""),
   tags: z.enum(["show_hn", "story"]).default("show_hn"),
   minPoints: z.number().int().min(0).max(10_000).default(2),
+  /**
+   * Fallback market for the source. Hacker News is US-centric, so a story with
+   * no stated location can be treated as a US-market company. Used only when the
+   * item itself does not name a city or country.
+   */
+  region: z.string().trim().max(80).optional(),
   maxItems: z.number().int().min(1).max(30).default(15),
 });
 
@@ -61,6 +67,7 @@ export function parseHnHits(hits: HnHit[], config: HnConfig): { documents: RawDo
         confidence: extracted?.confidence ?? 0.64,
         domain,
         website: externalUrl ?? null,
+        location: config.region ?? null,
       },
       signalHints: config.tags === "show_hn" ? ["PRODUCT_LAUNCH"] : [],
       tags: hit._tags ?? [],

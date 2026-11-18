@@ -1,4 +1,4 @@
-import { INDUSTRIES } from "@/lib/icp/taxonomy";
+import { GEOGRAPHIES, INDUSTRIES, regionCovers } from "@/lib/icp/taxonomy";
 
 const COMPANY_SUFFIXES = /\b(inc|inc\.|llc|ltd|ltd\.|limited|corp|corp\.|corporation|gmbh|ag|sa|sas|bv|plc|pty|oy|ab|as|co\.|company)\b\.?$/i;
 
@@ -83,6 +83,8 @@ const GENERIC_NAMES = new Set([
 export type CompanyExtraction = { name: string; confidence: number; pattern: string };
 
 const NEWS_PREFIX = /^(?:exclusive|breaking|report|update|analysis|opinion|watch|video)\s*[:\-]\s*/i;
+// "India's EloElo raises…" names the market, not the company.
+const POSSESSIVE_MARKET_PREFIX = /^(?:india|america|britain|europe|africa|asia)['’]s\s+/i;
 const DESCRIPTOR_PREFIX =
   /^(?:(?:[A-Za-z][\w&.'-]*\s+){0,4})(?:startup|fintech|healthtech|medtech|defencetech|insurtech|proptech|edtech|regtech|legaltech|martech|climatech|cleantech|biotech|devtools|ai)\s+/i;
 
@@ -90,6 +92,7 @@ function cleanCandidate(raw: string): string {
   let candidate = normalizeCompanyName(raw)
     .replace(/^(?:show hn|launch hn|ask hn)\s*[:\-]\s*/i, "")
     .replace(NEWS_PREFIX, "")
+    .replace(POSSESSIVE_MARKET_PREFIX, "")
     .replace(DESCRIPTOR_PREFIX, "")
     .replace(/\s+(?:raises|raised|secures|secured|closes|lands|nabs|announces|launches|unveils|introduces|appoints|names|acquires|partners)\b.*$/i, "")
     .replace(/\s*[|–—-]\s*.*$/, "")
@@ -117,6 +120,8 @@ export function extractCompanyFromHeadline(title: string): CompanyExtraction | n
     const name = cleanCandidate(match[1]);
     const lower = name.toLowerCase();
     if (name.length < 2 || GENERIC_NAMES.has(lower) || /^\d/.test(name)) continue;
+    // "Indian semiconductor startup raises…" describes a category, not a company.
+    if (/\b(?:startup|company|business|platform|firm|brand|marketplace|provider|service)\s*$/i.test(name)) continue;
     if (name.split(/\s+/).length > 6) continue;
     // A person, an investor or an unnamed "alum" is not a prospect company.
     if (/\b(?:alum|alumnus|alumni|founder|co-founder|veteran|investor)\b/i.test(name)) continue;
@@ -160,6 +165,76 @@ export function inferIndustry(text: string, targetIndustries: string[]): { indus
     if (hit) return { industry, confidence: taxonomy ? 0.65 : 0.55 };
   }
   return { industry: null, confidence: 0 };
+}
+
+/**
+ * City-level aliases from the ICP taxonomy. When one of these appears in a
+ * headline we can show "Bengaluru, India" instead of only "India"; every other
+ * alias (nationality words, broad regions) resolves to the canonical label.
+ */
+const CITY_ALIASES = new Set([
+  "new york", "san francisco", "bay area", "austin", "boston", "seattle", "los angeles", "chicago", "miami",
+  "denver", "atlanta", "washington dc", "toronto", "vancouver", "montreal", "berlin", "munich", "hamburg",
+  "paris", "lyon", "amsterdam", "rotterdam", "madrid", "barcelona", "lisbon", "porto", "dublin", "stockholm",
+  "copenhagen", "oslo", "helsinki", "zurich", "geneva", "tel aviv", "bangalore", "bengaluru", "mumbai",
+  "delhi", "hyderabad", "pune", "chennai", "sydney", "melbourne", "auckland", "tokyo", "osaka", "seoul",
+  "shanghai", "beijing", "shenzhen", "são paulo", "sao paulo", "rio de janeiro", "mexico city", "cdmx",
+  "dubai", "abu dhabi", "cape town", "johannesburg", "lagos", "nairobi", "warsaw", "krakow", "prague",
+  "vienna", "brussels", "milan", "rome",
+]);
+
+function escapeAlias(alias: string): string {
+  return alias.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function aliasPattern(alias: string): RegExp {
+  return new RegExp(`(?<![a-z0-9])${escapeAlias(alias.toLowerCase())}(?![a-z0-9])`, "i");
+}
+
+const LOCATION_ALIASES = GEOGRAPHIES
+  .filter((entry) => entry.label !== "Remote / global")
+  .flatMap((entry) => entry.aliases.map((alias) => ({ alias, label: entry.label, pattern: aliasPattern(alias) })))
+  .sort((a, b) => b.alias.length - a.alias.length);
+
+function titleCase(value: string): string {
+  return value.replace(/(^|\s)([a-z])/g, (_, space: string, letter: string) => `${space}${letter.toUpperCase()}`);
+}
+
+/**
+ * Infers a company's geography from article or company-page text. Job listings
+ * must not use this: a candidate's location is not the employer's headquarters.
+ */
+export function inferCompanyLocation(text: string): { geography: string; location: string } | null {
+  const lower = text.toLowerCase();
+  if (!lower.trim()) return null;
+  for (const entry of LOCATION_ALIASES) {
+    if (!entry.pattern.test(lower)) continue;
+    const location = CITY_ALIASES.has(entry.alias) ? `${titleCase(entry.alias)}, ${entry.label}` : entry.label;
+    return { geography: entry.label, location };
+  }
+  return null;
+}
+
+/**
+ * True when a known company location fits at least one target geography.
+ * "Remote / global" disables the filter entirely.
+ */
+export function locationMatchesGeographies(location: string | null, geographies: string[]): boolean {
+  if (!location) return false;
+  if (geographies.some((geography) => /^remote\s*\/\s*global$/i.test(geography.trim()))) return true;
+  const lower = location.toLowerCase();
+  return geographies.some((geography) => {
+    const entry = GEOGRAPHIES.find((item) => item.label.toLowerCase() === geography.trim().toLowerCase());
+    if (!entry) return lower.includes(geography.trim().toLowerCase());
+    if (lower.includes(entry.label.toLowerCase())) return true;
+    // Broad target ("Europe") vs specific company country ("Germany"), and the
+    // reverse for a source tagged with a region rather than a country.
+    const locationGeography = GEOGRAPHIES.find((item) => lower.includes(item.label.toLowerCase()))?.label;
+    if (locationGeography && (regionCovers(entry.label, locationGeography) || regionCovers(locationGeography, entry.label))) {
+      return true;
+    }
+    return entry.aliases.some((alias) => aliasPattern(alias).test(lower));
+  });
 }
 
 export function cleanSourceName(raw: string): string {

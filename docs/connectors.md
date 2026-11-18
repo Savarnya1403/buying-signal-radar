@@ -6,9 +6,9 @@ Every source in Buying Signal Radar is an explicit connector with a Zod config s
 
 | `SourceType` | Connector | Default source | Requires key |
 | --- | --- | --- | --- |
-| `RSS` | RSS / Atom feeds | TechCrunch startups, venture and industry tags; Tech.eu; Crunchbase News | No |
+| `RSS` | RSS / Atom feeds | TechCrunch startups, venture and industry tags; Tech.eu; Crunchbase News. India-targeted ICPs switch to Inc42, YourStory, Economic Times tech, TechCrunch India and Google News RSS queries | No |
 | `HN` | Hacker News Algolia API | Show HN launches matched to your category | No |
-| `JOB_FEED` | Remotive, Jobicy, Greenhouse, Lever, Ashby + ATS auto-detect | Remotive + Jobicy hiring search | No |
+| `JOB_FEED` | Remotive, Jobicy, Greenhouse, Lever, Ashby + ATS auto-detect | India hiring watchlist from verified ATS boards; Remotive + Jobicy only for global ICPs | No |
 | `WEBSITE` | Company-owned public pages | Added per company | No |
 | `URL` | Any page you submit | Empty by default | No |
 | `WEB_SEARCH` | Tavily or Brave Search API | Suggested when a key exists | Yes |
@@ -49,11 +49,23 @@ If a fetch fails, the connector returns a warning. The discovery pipeline record
 ```json
 {
   "feedUrl": "https://example.com/feed.xml",
+  "region": "India",
   "maxItems": 20
 }
 ```
 
-Accepts RSS 2.0 and Atom. Each item becomes a `RawDocument` with title, link, summary, publication date and the feed's name as `sourceName`.
+Accepts RSS 2.0 and Atom. Each item becomes a `RawDocument` with title, link, summary, publication date and the feed's name as `sourceName`. `region` is an optional fallback for single-market publications: it is used only when the article itself does not name a city or country, so an Inc42 story without "Bengaluru" in it is still attributed to India.
+
+### Geography relevance
+
+Discovery only keeps a document when the company can be tied to a target geography:
+
+- a checked company-directory entry (domain or name) supplies a verified industry and primary India location;
+- otherwise the headline/summary is scanned for a city or country from the ICP taxonomy;
+- single-market feeds fall back to their `region`;
+- a job listing's location is stored as `metadata.jobLocation` and **never** as the employer's headquarters.
+
+Documents with no verifiable location are rejected for a country-specific ICP. `Remote / global` disables the filter. This is deliberate: proximity is a fit signal, and guessing it is what made an India search return unrelated companies.
 
 ### Hacker News
 
@@ -96,7 +108,19 @@ Uses the public Algolia API (`https://hn.algolia.com/api/v1/search`). The discus
 { "provider": "auto", "domains": ["linear.app", "vercel.com", "ramp.com"], "maxItems": 24 }
 ```
 
-Detection order: probe the public Ashby → Lever → Greenhouse APIs with the domain's first label, then read the company homepage and `/careers` pages and look for `jobs.ashbyhq.com`, `jobs.lever.co` or `boards.greenhouse.io` links. Up to 8 domains per source, and every role keeps its own listing URL.
+A verified entry can carry its board so no probe is needed (this is how the India watchlist stays fast):
+
+```json
+{
+  "provider": "auto",
+  "entries": [
+    { "domain": "razorpay.com", "companyName": "Razorpay", "provider": "greenhouse", "boardToken": "razorpaysoftwareprivatelimited" }
+  ],
+  "maxItems": 24
+}
+```
+
+Detection order for entries without a board: probe the public Ashby → Lever → Greenhouse APIs with the domain's first label, then read the company homepage and `/careers` pages and look for `jobs.ashbyhq.com`, `jobs.lever.co` or `boards.greenhouse.io` links. Up to 8 domains per source, and every role keeps its own listing URL.
 
 Hiring documents produce `HIRING` signals. The job listing URL is the evidence link.
 

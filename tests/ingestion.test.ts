@@ -1,8 +1,19 @@
 import { atsFromHtml, companyNameFromDomain, normalizeDomain } from "@/lib/connectors/ats-parse";
 import { describe, expect, it } from "vitest";
+import { buildDefaultSources } from "@/lib/connectors";
 import { classifySignal } from "@/lib/connectors/classify";
-import { companyKey, domainFromUrl, extractCompanyFromHeadline, inferIndustry, normalizeCompanyName } from "@/lib/connectors/extraction";
+import { directoryCompanyFor, directoryWatchlist } from "@/lib/connectors/company-directory";
+import {
+  companyKey,
+  domainFromUrl,
+  extractCompanyFromHeadline,
+  inferCompanyLocation,
+  inferIndustry,
+  locationMatchesGeographies,
+  normalizeCompanyName,
+} from "@/lib/connectors/extraction";
 import { parseJobicyJobs } from "@/lib/connectors/job-feed";
+import { parseRssItems } from "@/lib/connectors/rss";
 import { parseContactsCsv, toCsv, contactsCsvTemplate } from "@/lib/contacts/csv";
 
 describe("signal classification", () => {
@@ -164,6 +175,15 @@ describe("job feed parsing", () => {
     expect(documents[0].tags).toEqual(["Marketing & Sales"]);
   });
 
+  it("never stores a candidate's location as the employer's headquarters", () => {
+    const documents = parseJobicyJobs(
+      [{ id: 4, jobTitle: "Account Executive", companyName: "Kestrel", jobGeo: "Bengaluru, India", pubDate: "2026-11-10T00:00:00Z" }],
+      1,
+    );
+    expect(documents[0].company.location).toBeUndefined();
+    expect(documents[0].metadata?.jobLocation).toBe("Bengaluru, India");
+  });
+
   it("infers a target industry from description wording", () => {
     expect(inferIndustry("Payments infrastructure for European banks and lenders", ["Fintech"])).toEqual({
       industry: "Fintech",
@@ -173,15 +193,84 @@ describe("job feed parsing", () => {
   });
 });
 
+describe("geography extraction", () => {
+  it("turns an Indian city into a country-level location", () => {
+    expect(inferCompanyLocation("Bengaluru-based Kestrel raises $12M Series A")).toEqual({
+      geography: "India",
+      location: "Bengaluru, India",
+    });
+    expect(inferCompanyLocation("Indian fintech Kestrel raises $12M")).toEqual({
+      geography: "India",
+      location: "India",
+    });
+  });
+
+  it("does not invent a location from text that names none", () => {
+    expect(inferCompanyLocation("A quiet week in the park")).toBeNull();
+  });
+
+  it("matches known company locations against target geographies", () => {
+    expect(locationMatchesGeographies("Bengaluru, India", ["India"])).toBe(true);
+    expect(locationMatchesGeographies("Pune, India", ["India"])).toBe(true);
+    expect(locationMatchesGeographies("San Francisco, United States", ["India"])).toBe(false);
+    expect(locationMatchesGeographies("Europe", ["United Kingdom"])).toBe(true);
+    expect(locationMatchesGeographies("Germany", ["Europe"])).toBe(true);
+    expect(locationMatchesGeographies(null, ["India"])).toBe(false);
+    expect(locationMatchesGeographies("Berlin, Germany", ["Remote / global"])).toBe(true);
+  });
+
+  it("uses a single-market publication as a location fallback", () => {
+    const parsed = parseRssItems(
+      [{ title: "Kestrel raises $10M Series A", link: "https://example.com/kestrel", contentSnippet: "The startup will hire across product and sales." }],
+      { feedUrl: "https://example.com/feed", region: "India", maxItems: 5 },
+      { title: "Inc42" },
+    );
+    expect(parsed.documents[0]?.company.location).toBe("India");
+  });
+});
+
+describe("company directory", () => {
+  it("resolves a company by domain or name and returns verified facts", () => {
+    expect(directoryCompanyFor({ domain: "https://www.cred.club/careers" })?.industry).toBe("Fintech");
+    expect(directoryCompanyFor({ name: "Razorpay" })?.location).toBe("Bengaluru, India");
+    expect(directoryCompanyFor({ name: "Totally Unknown Co" })).toBeNull();
+  });
+
+  it("builds an India watchlist only for matching industries", () => {
+    const fintech = directoryWatchlist({ targetIndustries: ["Fintech"], geographies: ["India"] });
+    expect(fintech.map((entry) => entry.domain)).toEqual(expect.arrayContaining(["razorpay.com", "cred.club", "groww.in"]));
+    expect(fintech.every((entry) => entry.provider && entry.boardToken)).toBe(true);
+    expect(directoryWatchlist({ targetIndustries: ["Fintech"], geographies: ["United States"] })).toEqual([]);
+  });
+
+  it("switches default sources to India instead of US feeds", () => {
+    const sources = buildDefaultSources({
+      productCategory: "KYC and onboarding platform",
+      targetIndustries: ["Fintech"],
+      buyerRoles: ["Founder / CEO"],
+      geographies: ["India"],
+      selectedSignalTypes: ["FUNDING", "HIRING"],
+    });
+    const names = sources.map((source) => source.name);
+    expect(names).toContain("Inc42 · Indian startups");
+    expect(names).toContain("YourStory · Indian founders");
+    expect(names).toContain("Hiring watchlist · India companies");
+    expect(names.some((name) => name.startsWith("TechCrunch · Startup"))).toBe(false);
+    expect(names.some((name) => name.startsWith("Remotive"))).toBe(false);
+  });
+});
+
 describe("headline company extraction", () => {
   it("strips news prefixes and descriptor words from funding headlines", () => {
     expect(extractCompanyFromHeadline("AI inference startup Daisytuner raises €6M seed")?.name).toBe("Daisytuner");
     expect(extractCompanyFromHeadline("Finnish healthtech Treat raises €3M to fix private healthcare")?.name).toBe("Treat");
     expect(extractCompanyFromHeadline("Exclusive: Kestrel raises $12M Series A")?.name).toBe("Kestrel");
+    expect(extractCompanyFromHeadline("India’s EloElo raises $8M to expand its creator platform")?.name).toBe("EloElo");
   });
 
   it("rejects people, investors and unnamed alumni as companies", () => {
     expect(extractCompanyFromHeadline("Exclusive: Nubank alum raises €3M for a new payments app")).toBeNull();
     expect(extractCompanyFromHeadline("Collide Capital raises $95M fund to back fintech startups")).toBeNull();
+    expect(extractCompanyFromHeadline("Indian semiconductor startup raises $24 million in seed funding")).toBeNull();
   });
 });

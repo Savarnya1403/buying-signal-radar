@@ -52,8 +52,7 @@ export const BUYER_ROLES: TaxonomyEntry[] = [
   { label: "IT leadership", aliases: ["cio", "head of it", "it leader", "vp it", "it teams"] },
 ];
 
-export const GEOGRAPHIES: TaxonomyEntry[] = [
-  { label: "United States", aliases: ["united states", "u.s.", "u.s.a", "usa", "us-based", "america", "american", "new york", "san francisco", "bay area", "austin", "boston", "seattle", "los angeles", "chicago", "miami", "denver", "atlanta", "washington dc"] },
+export const GEOGRAPHIES: TaxonomyEntry[] = [  { label: "United States", aliases: ["united states", "u.s.", "u.s.a", "usa", "us-based", "america", "american", "new york", "san francisco", "bay area", "austin", "boston", "seattle", "los angeles", "chicago", "miami", "denver", "atlanta", "washington dc"] },
   { label: "United Kingdom", aliases: ["united kingdom", "u.k.", "uk", "britain", "british", "england", "scotland", "wales"] },
   { label: "Canada", aliases: ["canada", "canadian", "toronto", "vancouver", "montreal"] },
   { label: "Germany", aliases: ["germany", "german", "berlin", "munich", "hamburg"] },
@@ -94,6 +93,27 @@ export const GEOGRAPHIES: TaxonomyEntry[] = [
   { label: "Africa", aliases: ["africa", "african"] },
   { label: "Remote / global", aliases: ["remote", "globally", "global", "worldwide", "anywhere"] },
 ];
+
+/**
+ * Countries covered by a broad region. Used so a source tagged "Europe" still
+ * matches a "United Kingdom" target, and a "Germany" company still counts for a
+ * "Europe" target. It is deliberately one level deep, not a geo database.
+ */
+export const REGION_MEMBERS: Record<string, string[]> = {
+  Europe: [
+    "United Kingdom", "Germany", "France", "Netherlands", "Spain", "Portugal", "Ireland", "Sweden",
+    "Denmark", "Norway", "Finland", "Switzerland", "Poland", "Czech Republic", "Austria", "Belgium", "Italy",
+  ],
+  "North America": ["United States", "Canada", "Mexico"],
+  "Latin America": ["Brazil", "Mexico"],
+  "Asia Pacific": ["India", "Singapore", "Australia", "New Zealand", "Japan", "South Korea", "China"],
+  "Middle East": ["United Arab Emirates", "Israel"],
+  Africa: ["South Africa", "Nigeria", "Kenya"],
+};
+
+export function regionCovers(region: string, geography: string): boolean {
+  return Boolean(REGION_MEMBERS[region]?.some((member) => member.toLowerCase() === geography.toLowerCase()));
+}
 
 export const PAIN_POINTS: TaxonomyEntry[] = [
   { label: "Pipeline forecasting", aliases: ["pipeline forecast", "forecast pipeline", "sales forecast", "revenue forecast", "forecasting", "predictable revenue"] },
@@ -195,6 +215,10 @@ export const SAMPLE_PRODUCT_DESCRIPTIONS = [
   {
     label: "Compliance automation",
     text: "We build SOC 2 compliance automation software for early-stage B2B SaaS and fintech companies. It helps CTOs and security leads get audit-ready, manage evidence and avoid painful security questionnaires. Ideal customers have 10 to 200 employees across the US, Canada and the UK. We don't target large banks or companies already using a Big Four auditor.",
+  },
+  {
+    label: "India fintech GTM",
+    text: "We sell a customer-onboarding and KYC platform to Indian fintech and lending companies. It helps product and compliance teams verify users faster and cut manual review. We want 50 to 2,000 employee companies in India, especially in Bengaluru, Mumbai and Gurugram. We don't work with banks over 10,000 employees.",
   },
   {
     label: "Logistics software",

@@ -14,7 +14,7 @@ It is deliberately boring where it matters: every claim keeps a source URL and e
 
 ## What it does
 
-1. **Interpret an ICP.** Paste a sentence about your product. The interpreter extracts industries, size range, geographies, buyer roles, pain points, exclusions and buying triggers. You can edit everything before searching.
+1. **Interpret an ICP.** Paste a sentence about your product. The interpreter extracts industries, size range, geographies, buyer roles, pain points, exclusions and buying triggers. On the dashboard, **Find leads now** saves the inferred ICP and starts discovery in one click; the full editor on `/discover` stays available if you want to review every field.
 2. **Discover companies.** Connectors scan the sources you enable, extract company mentions, deduplicate by name/domain key, and attach provenance.
 3. **Score prospects.** Three separate scores — **ICP fit**, **buying signal** and **priority** — with configurable weights and a visible breakdown. These are fit/urgency indices, never "probability of purchase".
 4. **Show the evidence.** Each prospect card lists signals with category, confidence, published date, source name and a link to the original page.
@@ -87,7 +87,12 @@ Open <http://localhost:3000>.
 
 ### 5. Run your first discovery
 
-Open `/discover`, describe what you sell, review the extracted ICP and confirm it. Confirming creates nine live sources — TechCrunch startups, venture and industry-tag feeds, Tech.eu European startups, Crunchbase News, Hacker News funding and launches, Remotive and Jobicy hiring — then runs discovery immediately.
+Open `/discover`, describe what you sell, review the extracted ICP and confirm it — or press **Find leads now** on the dashboard to skip straight to results. Default sources follow the geography you name:
+
+- **India:** Inc42, YourStory, Economic Times tech, TechCrunch India, two Google News RSS queries (India funding + industry) and a hiring watchlist built from verified Indian company ATS boards (Razorpay, Groww, CRED, Meesho, Druva, Atlan, Mindtickle).
+- **Everywhere else:** TechCrunch startups, venture and industry-tag feeds, Tech.eu, Crunchbase News and Hacker News funding/launches.
+
+The latest ICP replaces stale managed sources instead of stacking them. Documents whose company cannot be tied to a target geography are rejected, so an India search returns Indian companies rather than unrelated US startups.
 
 A private workspace is created from a cookie (`bsr_workspace`); no account required. Everything you then see came from those sources — click any signal to open the original page.
 

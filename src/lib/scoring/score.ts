@@ -1,5 +1,5 @@
 import type { SignalType } from "@prisma/client";
-import { GEOGRAPHIES, INDUSTRIES, TRIGGER_TO_SIGNAL } from "@/lib/icp/taxonomy";
+import { GEOGRAPHIES, INDUSTRIES, regionCovers, TRIGGER_TO_SIGNAL } from "@/lib/icp/taxonomy";
 import { SIGNAL_META } from "@/lib/signals";
 import { DEFAULT_SCORING_CONFIG, type ScoringConfig } from "./config";
 
@@ -139,6 +139,11 @@ export function locationMatches(geography: string, location: string | null): boo
   const lower = location.toLowerCase();
   const geo = GEOGRAPHIES.find((entry) => entry.label.toLowerCase() === geography.toLowerCase());
   if (!geo) return lower.includes(geography.toLowerCase());
+  if (lower.includes(geo.label.toLowerCase())) return true;
+  const locationGeography = GEOGRAPHIES.find((entry) => lower.includes(entry.label.toLowerCase()))?.label;
+  if (locationGeography && (regionCovers(geo.label, locationGeography) || regionCovers(locationGeography, geo.label))) {
+    return true;
+  }
   return geo.aliases.some((alias) => {
     const pattern = new RegExp(`(?<![a-z0-9])${alias.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![a-z0-9])`, "i");
     return pattern.test(lower);
