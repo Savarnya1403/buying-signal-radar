@@ -10,7 +10,7 @@ import { rescoreWorkspace } from "@/lib/scoring/service";
 const schema = z.object({
   productDescription: z.string().trim().min(20).max(6000),
   productCategory: z.string().trim().min(2).max(160),
-  targetIndustries: z.array(z.string().trim().min(1).max(80)).min(1).max(20),
+  targetIndustries: z.array(z.string().trim().min(1).max(80)).min(1, "Add at least one target industry.").max(20),
   companySizeMin: z.number().int().min(0).max(1_000_000).nullable(),
   companySizeMax: z.number().int().min(1).max(1_000_000).nullable(),
   geographies: z.array(z.string().trim().min(1).max(80)).max(30),
@@ -18,7 +18,7 @@ const schema = z.object({
   painPoints: z.array(z.string().trim().min(1).max(160)).max(20),
   buyingTriggers: z.array(z.string().trim().min(1).max(80)).max(20),
   exclusions: z.array(z.string().trim().min(1).max(240)).max(20),
-  selectedSignalTypes: z.array(z.enum(SIGNAL_TYPES)).min(1).max(SIGNAL_TYPES.length),
+  selectedSignalTypes: z.array(z.enum(SIGNAL_TYPES)).min(1, "Choose at least one signal type.").max(SIGNAL_TYPES.length),
   discoveryPeriodDays: z.number().int().min(1).max(365),
   confidence: z.number().min(0).max(1).optional(),
   rationale: z.unknown().optional(),
