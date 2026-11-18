@@ -254,6 +254,7 @@ describe("company directory", () => {
     const names = sources.map((source) => source.name);
     expect(names).toContain("Inc42 · Indian startups");
     expect(names).toContain("YourStory · Indian founders");
+    expect(names).toContain("Google News · India industry news");
     expect(names).toContain("Hiring watchlist · India companies");
     expect(names.some((name) => name.startsWith("TechCrunch · Startup"))).toBe(false);
     expect(names.some((name) => name.startsWith("Remotive"))).toBe(false);

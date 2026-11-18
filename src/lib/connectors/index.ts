@@ -111,20 +111,11 @@ export function buildDefaultSources(icp: ConnectorIcp): DefaultSource[] {  const
         config: { feedUrl: "https://techcrunch.com/tag/india/feed/", region: "India", maxItems: 20 },
         description: "TechCrunch stories tagged India, matched to the Indian market you asked for.",
       },
-      {
-        type: "RSS",
-        name: "Google News · India startup funding",
-        url: "https://news.google.com/rss/search?q=India+startup+funding&hl=en-IN&gl=IN&ceid=IN%3Aen",
-        config: {
-          feedUrl: "https://news.google.com/rss/search?q=India+startup+funding&hl=en-IN&gl=IN&ceid=IN%3Aen",
-          region: "India",
-          maxItems: 25,
-        },
-        description: "Public Google News RSS query for India startup funding, with every item linked to the original publisher.",
-      },
     ];
 
     if (industry) {
+      // Match the query to the target industry so the India feed does not fill
+      // the board with unrelated Indian startups.
       const params = new URLSearchParams({
         q: `India ${industry} startup (funding OR hiring OR launches OR expansion)`,
         hl: "en-IN",
@@ -140,6 +131,18 @@ export function buildDefaultSources(icp: ConnectorIcp): DefaultSource[] {  const
         description: `Public Google News RSS query for Indian ${industry.toLowerCase()} companies, matched to the first target industry on your ICP.`,
       });
     }
+
+    indiaSources.push({
+      type: "RSS",
+      name: "Google News · India startup funding",
+      url: "https://news.google.com/rss/search?q=India+startup+funding&hl=en-IN&gl=IN&ceid=IN%3Aen",
+      config: {
+        feedUrl: "https://news.google.com/rss/search?q=India+startup+funding&hl=en-IN&gl=IN&ceid=IN%3Aen",
+        region: "India",
+        maxItems: 25,
+      },
+      description: "Public Google News RSS query for India startup funding, with every item linked to the original publisher.",
+    });
 
     const watchlist = directoryWatchlist(icp);
     if (watchlist.length > 0) {
